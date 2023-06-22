@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   meson_spin:
-    if: "github.repository == 'numpy/numpy'"
+    # if: "github.repository == 'numpy/numpy'"
     runs-on: ubuntu-latest
     strategy:
       matrix:

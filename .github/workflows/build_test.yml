@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   lint:
-    if: github.repository == 'numpy/numpy' && github.event_name != 'push'
+    # if: github.repository == 'numpy/numpy' && github.event_name != 'push'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -46,7 +46,7 @@ jobs:
         python tools/linter.py --branch origin/${{ github.base_ref }}
 
   smoke_test:
-    if: "github.repository == 'numpy/numpy'"
+    # if: "github.repository == 'numpy/numpy'"
     runs-on: ubuntu-latest
     env:
       WITHOUT_SIMD: 1
