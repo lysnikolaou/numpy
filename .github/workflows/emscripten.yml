@@ -4,10 +4,9 @@
 name: Test Emscripten/Pyodide build
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
-      - maintenance/**
+      - pyodide-*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -19,7 +18,7 @@ permissions:
 jobs:
   build-wasm-emscripten:
     runs-on: ubuntu-22.04
-    if: "github.repository == 'numpy/numpy'"
+    # if: "github.repository == 'numpy/numpy'"
     env:
       PYODIDE_VERSION: 0.23.1
       # PYTHON_VERSION and EMSCRIPTEN_VERSION are determined by PYODIDE_VERSION.

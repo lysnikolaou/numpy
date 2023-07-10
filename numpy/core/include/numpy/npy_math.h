@@ -411,6 +411,10 @@ static inline npy_longdouble npy_cimagl(npy_clongdouble z)
     return NPY_CLONGDOUBLE_GET_IMAG(&z);
 }
 
+#ifdef __cplusplus
+extern "C++" {
+#endif
+
 /*
  * Double precision complex functions
  */
@@ -495,6 +499,10 @@ npy_clongdouble npy_catanl(npy_clongdouble z);
 npy_clongdouble npy_cacoshl(npy_clongdouble z);
 npy_clongdouble npy_casinhl(npy_clongdouble z);
 npy_clongdouble npy_catanhl(npy_clongdouble z);
+
+#ifdef __cplusplus
+} // extern "C++"
+#endif
 
 
 /*
