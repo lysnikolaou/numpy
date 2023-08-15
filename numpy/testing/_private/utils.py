@@ -525,8 +525,8 @@ def assert_almost_equal(actual, desired, decimal=7, err_msg='', verbose=True):
     Arrays are not almost equal to 9 decimals
     <BLANKLINE>
     Mismatched elements: 1 / 2 (50%)
-    Max absolute difference: 6.66669964e-09
-    Max relative difference: 2.85715698e-09
+    Max absolute difference among violations: 6.66669964e-09
+    Max relative difference among violations: 2.85715698e-09
      x: array([1.         , 2.333333333])
      y: array([1.        , 2.33333334])
 
@@ -945,8 +945,8 @@ def assert_array_equal(x, y, err_msg='', verbose=True, *, strict=False):
     Arrays are not equal
     <BLANKLINE>
     Mismatched elements: 1 / 3 (33.3%)
-    Max absolute difference: 4.4408921e-16
-    Max relative difference: 1.41357986e-16
+    Max absolute difference among violations: 4.4408921e-16
+    Max relative difference among violations: 1.41357986e-16
      x: array([1.      , 3.141593,      nan])
      y: array([1.      , 3.141593,      nan])
 
@@ -1058,8 +1058,8 @@ def assert_array_almost_equal(x, y, decimal=6, err_msg='', verbose=True):
     Arrays are not almost equal to 5 decimals
     <BLANKLINE>
     Mismatched elements: 1 / 3 (33.3%)
-    Max absolute difference: 6.e-05
-    Max relative difference: 2.57136612e-05
+    Max absolute difference among violations: 6.e-05
+    Max relative difference among violations: 2.57136612e-05
      x: array([1.     , 2.33333,     nan])
      y: array([1.     , 2.33339,     nan])
 
@@ -1178,8 +1178,8 @@ def assert_array_less(x, y, err_msg='', verbose=True, *, strict=False):
     Arrays are not less-ordered
     <BLANKLINE>
     Mismatched elements: 1 / 3 (33.3%)
-    Max absolute difference: 1.
-    Max relative difference: 0.5
+    Max absolute difference among violations: 1.
+    Max relative difference among violations: 0.5
      x: array([ 1.,  1., nan])
      y: array([ 1.,  2., nan])
 
@@ -1199,7 +1199,9 @@ def assert_array_less(x, y, err_msg='', verbose=True, *, strict=False):
     AssertionError:
     Arrays are not less-ordered
     <BLANKLINE>
-    (shapes (2,), () mismatch)
+    Mismatched elements: 1 / 2 (50%)
+    Max absolute difference among violations: 2.
+    Max relative difference among violations: 0.66666667
      x: array([1., 4.])
      y: array(5.)
 
