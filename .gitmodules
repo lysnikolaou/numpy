@@ -13,3 +13,6 @@
 [submodule "vendored-meson/meson-python"]
 	path = vendored-meson/meson-python
 	url = https://github.com/numpy/meson-python.git
+[submodule "numpy/core/src/libnpymath"]
+	path = numpy/core/src/libnpymath
+	url = git@github.com:lysnikolaou/libnpymath.git

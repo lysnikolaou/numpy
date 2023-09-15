@@ -1,5 +1,17 @@
 # Build npyrandom library
 # -----------------------
+# We install libnpyrandom; ensure they're using a `.lib` rather
+# than a `.a` file extension in order not to break including them in a
+# distutils-based build (see gh-23981 and
+# https://mesonbuild.com/FAQ.html#why-does-building-my-project-with-msvc-output-static-libraries-called-libfooa)
+if is_windows and cc.get_id() == 'msvc'
+  name_prefix_staticlib = ''
+  name_suffix_staticlib = 'lib'
+else
+  name_prefix_staticlib = []
+  name_suffix_staticlib = []
+endif
+
 npyrandom_sources = [
   'src/distributions/logfactorial.c',
   'src/distributions/distributions.c',
@@ -11,7 +23,7 @@ npyrandom_sources = [
 npyrandom_lib = static_library('npyrandom',
   npyrandom_sources,
   c_args: staticlib_cflags,
-  dependencies: [py_dep, np_core_dep],
+  dependencies: [py_dep, np_core_dep, libnpymath_dep],
   install: true,
   install_dir: np_dir / 'random/lib',
   name_prefix: name_prefix_staticlib,
@@ -53,7 +65,7 @@ endif
 
 # name, sources, extra c_args, extra static libs to link
 random_pyx_sources = [
-  ['_bounded_integers', _bounded_integers_pyx, [], [npyrandom_lib, npymath_lib]],
+  ['_bounded_integers', _bounded_integers_pyx, [], [npyrandom_lib]],
   ['_common', '_common.pyx', [], [npyrandom_lib]],
   ['_mt19937', ['_mt19937.pyx', 'src/mt19937/mt19937.c', 'src/mt19937/mt19937-jump.c'],
     [], [npyrandom_lib]
@@ -64,13 +76,13 @@ random_pyx_sources = [
   ['bit_generator', 'bit_generator.pyx', [], [npyrandom_lib]],
   # The `fs.copyfile` usage here is needed because these two .pyx files import
   # from _bounded_integers,and its pxd file is only present in the build directory
-  ['_generator', fs.copyfile('_generator.pyx'), [], [npyrandom_lib, npymath_lib]],
+  ['_generator', fs.copyfile('_generator.pyx'), [], [npyrandom_lib]],
   ['mtrand', [
       fs.copyfile('mtrand.pyx'),
       'src/distributions/distributions.c',
       'src/legacy/legacy-distributions.c'
     ],
-    ['-DNP_RANDOM_LEGACY=1'], [npymath_lib],
+    ['-DNP_RANDOM_LEGACY=1'], [],
   ],
 ]
 foreach gen: random_pyx_sources
@@ -78,7 +90,7 @@ foreach gen: random_pyx_sources
     [gen[1], _cython_tree, _cython_tree_random],
     c_args: [c_args_random, gen[2]],
     include_directories: 'src',
-    dependencies: np_core_dep,
+    dependencies: [np_core_dep, libnpymath_dep],
     link_with: gen[3],
     install: true,
     subdir: 'numpy/random',
