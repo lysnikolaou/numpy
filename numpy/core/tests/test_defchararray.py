@@ -243,6 +243,7 @@ class TestInformation:
         assert_array_equal(self.A.find('3'), [[-1, -1], [2, -1], [2, -1]])
         assert_array_equal(self.A.find('a', 0, 2), [[1, -1], [-1, -1], [-1, -1]])
         assert_array_equal(self.A.find(['1', 'P']), [[-1, -1], [0, -1], [0, 1]])
+        assert_array_equal(self.A.find('345'), [[-1, -1], [2, -1], [6, -1]])
 
     def test_index(self):
 

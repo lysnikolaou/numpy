@@ -14,15 +14,19 @@
 #include "stringlib/length.h"
 #include "stringlib/isalpha.h"
 #include "stringlib/add.h"
+#include "stringlib/fastsearch.h"
+#include "stringlib/find.h"
 #include "stringlib/undef.h"
 
 #include "stringlib/ucs4lib.h"
 #include "stringlib/length.h"
 #include "stringlib/isalpha.h"
 #include "stringlib/add.h"
+#include "stringlib/fastsearch.h"
+#include "stringlib/find.h"
 #include "stringlib/undef.h"
 
-typedef int (*_vec_string_fast_op)(PyArrayIterObject **, PyArrayIterObject *);
+typedef int (*_vec_string_fast_op)(PyArrayIterObject **, int, PyArrayIterObject *);
 
 typedef struct {
     const char *name;
@@ -40,7 +44,10 @@ static _vec_string_named_fast_op *SUPPORTED_FAST_OPS[] = {
     (_vec_string_named_fast_op[]) {{NULL, NULL, NULL, -1}},
     (_vec_string_named_fast_op[]) {{NULL, NULL, NULL, -1}},
     (_vec_string_named_fast_op[]) {{NULL, NULL, NULL, -1}},
-    (_vec_string_named_fast_op[]) {{NULL, NULL, NULL, -1}},
+    (_vec_string_named_fast_op[]) {
+        {"find", ucs4lib_find, stringlib_find, 1},
+        {NULL, NULL, NULL, -1},
+    },
     (_vec_string_named_fast_op[]) {{NULL, NULL, NULL, -1}},
     (_vec_string_named_fast_op[]) {{NULL, NULL, NULL, -1}},
     (_vec_string_named_fast_op[]) {
@@ -147,7 +154,7 @@ _vec_string_with_args(PyArrayObject* char_array, PyArray_Descr* type,
 
     while (PyArray_MultiIter_NOTDONE(in_iter)) {
         if (fast) {
-            if (!((_vec_string_fast_op) method)(in_iter->iters, out_iter)) {
+            if (!((_vec_string_fast_op) method)(in_iter->iters, in_iter->numiter, out_iter)) {
                 goto err;
             }
         } else {
@@ -233,7 +240,7 @@ _vec_string_no_args(PyArrayObject* char_array, PyArray_Descr* type,
 
     while (PyArray_ITER_NOTDONE(in_iter)) {
         if (fast) {
-            if (!((_vec_string_fast_op) method)(&in_iter, out_iter)) {
+            if (!((_vec_string_fast_op) method)(&in_iter, 1, out_iter)) {
                 goto err;
             }
         } else {

@@ -3,7 +3,7 @@
 #endif
 
 static inline int
-STRINGLIB(isalpha)(PyArrayIterObject **in_iter, PyArrayIterObject *out_iter)
+STRINGLIB(isalpha)(PyArrayIterObject **in_iter, int NPY_UNUSED(numiters), PyArrayIterObject *out_iter)
 {
     STRINGLIB_CHAR *data = (STRINGLIB_CHAR *) (*in_iter)->dataptr;
     Py_ssize_t len = STRINGLIB(get_length)(*in_iter);

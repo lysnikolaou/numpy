@@ -3,7 +3,7 @@
 #endif
 
 static inline int
-STRINGLIB(add)(PyArrayIterObject **in_iters, PyArrayIterObject *out_iter)
+STRINGLIB(add)(PyArrayIterObject **in_iters, int NPY_UNUSED(numiters), PyArrayIterObject *out_iter)
 {
     STRINGLIB_CHAR *left, *right;
     Py_ssize_t left_len, right_len, left_len_in_bytes, right_len_in_bytes;
@@ -12,10 +12,10 @@ STRINGLIB(add)(PyArrayIterObject **in_iters, PyArrayIterObject *out_iter)
     right = (STRINGLIB_CHAR *) in_iters[1]->dataptr;
 
     left_len = STRINGLIB(get_length)(in_iters[0]);
-    left_len_in_bytes = left_len * sizeof(STRINGLIB_CHAR);
+    left_len_in_bytes = left_len * STRINGLIB_SIZEOF_CHAR;
 
     right_len = STRINGLIB(get_length)(in_iters[1]);
-    right_len_in_bytes = right_len * sizeof(STRINGLIB_CHAR);
+    right_len_in_bytes = right_len * STRINGLIB_SIZEOF_CHAR;
 
     if (left_len > PY_SSIZE_T_MAX - right_len) {
         PyErr_SetString(PyExc_OverflowError,
