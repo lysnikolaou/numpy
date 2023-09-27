@@ -48,7 +48,10 @@ static _vec_string_named_fast_op *SUPPORTED_FAST_OPS[] = {
         {"find", ucs4lib_find, stringlib_find, 1},
         {NULL, NULL, NULL, -1},
     },
-    (_vec_string_named_fast_op[]) {{NULL, NULL, NULL, -1}},
+    (_vec_string_named_fast_op[]) {
+        {"rfind", ucs4lib_rfind, stringlib_rfind, 1},
+        {NULL, NULL, NULL, -1}
+    },
     (_vec_string_named_fast_op[]) {{NULL, NULL, NULL, -1}},
     (_vec_string_named_fast_op[]) {
         {"__add__", ucs4lib_add, stringlib_add, 1},

@@ -24,9 +24,7 @@
     }
 
 static inline int
-STRINGLIB(find)(PyArrayIterObject **in_iters, int numiters, PyArrayIterObject *out_iter)/*const STRINGLIB_CHAR* str, Py_ssize_t str_len,
-                                                                            const STRINGLIB_CHAR* sub, Py_ssize_t sub_len,
-                                                                            Py_ssize_t offset) */
+STRINGLIB(find)(PyArrayIterObject **in_iters, int numiters, PyArrayIterObject *out_iter)
 {
     const STRINGLIB_CHAR *buf1, *buf2;
     Py_ssize_t pos, len1, len2, start, end;
@@ -76,21 +74,53 @@ STRINGLIB(find)(PyArrayIterObject **in_iters, int numiters, PyArrayIterObject *o
     return 1;
 }
 
-/*static inline Py_ssize_t
-STRINGLIB(rfind)(const STRINGLIB_CHAR* str, Py_ssize_t str_len,
-                const STRINGLIB_CHAR* sub, Py_ssize_t sub_len,
-                Py_ssize_t offset)
+static inline int
+STRINGLIB(rfind)(PyArrayIterObject **in_iters, int numiters, PyArrayIterObject *out_iter)
 {
-    Py_ssize_t pos;
+    const STRINGLIB_CHAR *buf1, *buf2;
+    Py_ssize_t pos, len1, len2, start, end;
 
-    assert(str_len >= 0);
-    if (sub_len == 0)
-        return str_len + offset;
+    buf1 = (STRINGLIB_CHAR *) in_iters[0]->dataptr;
+    buf2 = (STRINGLIB_CHAR *) in_iters[1]->dataptr;
+    if (numiters > 2) {
+        start = *((Py_ssize_t *) in_iters[2]->dataptr);
+    } else {
+        start = 0;
+    }
+    if (numiters > 3) {
+        end = *((Py_ssize_t *) in_iters[3]->dataptr);
+    } else {
+        end = PY_SSIZE_T_MAX;
+    }
 
-    pos = STRINGLIB(fastsearch)(str, str_len, sub, sub_len, -1, FAST_RSEARCH);
+    len1 = STRINGLIB(get_length)(in_iters[0]);
+    len2 = STRINGLIB(get_length)(in_iters[1]);
+    ADJUST_INDICES(start, end, len1);
 
-    if (pos >= 0)
-        pos += offset;
+    if (end - start < len2) {
+        pos = -1;
+        memcpy(out_iter->dataptr, &pos, sizeof(npy_int64));
+        return 1;
+    }
 
-    return pos;
-}*/
+    if (len2 == 0) {
+        memcpy(out_iter->dataptr, &end, sizeof(npy_int64));
+        return 1;
+    }
+
+    if (len2 == 1) {
+        pos = STRINGLIB(rfind_char)(buf1 + start, end - start, *buf2);
+        if (pos >= 0) {
+            pos += start;
+        }
+        memcpy(out_iter->dataptr, &pos, sizeof(npy_int64));
+        return 1;
+    }
+
+    pos = STRINGLIB(fastsearch)(buf1, end - start, buf2, len2, -1, FAST_RSEARCH);
+    if (pos >= 0) {
+        pos += start;
+    }
+    memcpy(out_iter->dataptr, &pos, sizeof(npy_int64));
+    return 1;
+}
