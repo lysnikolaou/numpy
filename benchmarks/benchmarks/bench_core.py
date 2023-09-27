@@ -1,3 +1,4 @@
+import string
 from .common import Benchmark
 
 import numpy as np
@@ -256,6 +257,10 @@ class NumPyChar(Benchmark):
         self.C = np.array(1000 * ['aa'])
         self.D = np.array(1000 * ['bb'])
 
+        # Get random 5-character ASCII strings
+        self.E = np.array([''.join(np.random.choice(list(string.ascii_lowercase), 5)) for _ in range(1000)])
+        self.F = ''.join(np.random.choice(list(string.ascii_lowercase), 2))
+
     def time_add_small_list_big_string(self):
         np.char.add(self.A, self.B)
 
@@ -267,3 +272,6 @@ class NumPyChar(Benchmark):
 
     def time_isalpha_big_list_small_string(self):
         np.char.isalpha(self.C)
+
+    def time_find(self):
+        np.char.find(self.E, self.F)
