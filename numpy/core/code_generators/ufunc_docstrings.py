@@ -4276,3 +4276,38 @@ add_newdoc('numpy.core.umath', 'isalpha',
     --------
     str.isalpha
     """)
+
+add_newdoc('numpy.core.umath', 'find',
+    """
+    For each element, return the lowest index in the string where
+    substring `x2` is found, such that `sub` is contained in the
+    range [`x3`, `x4`].
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``unicode_`` dtype
+
+    x2 : array_like, with ``bytes_`` or ``unicode_``
+
+    x3, x4 : int, optional
+        Optional arguments `x1` and `x2` are interpreted as in
+        slice notation.
+        $PARAMS
+
+    Returns
+    -------
+    y : ndarray
+        Output array of ints
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.find
+
+    Examples
+    --------
+    >>> a = np.array(["NumPy is a Python library"])
+    >>> np.core.umath.find(a, "Python", 0, None)
+    array([11])
+
+    """)

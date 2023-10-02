@@ -1141,6 +1141,11 @@ defdict = {
     Ufunc(1, 1, False_,
           docstrings.get('numpy.core.umath.isalpha'),
           None,
+          ),
+'find':
+    Ufunc(4, 1, AllOnes,
+          docstrings.get('numpy.core.umath.find'),
+          None,
           )
 }
 
