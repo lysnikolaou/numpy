@@ -536,7 +536,7 @@ init_find(PyObject *umath)
     /* All Unicode loops */
     dtypes[0] = Unicode;
     dtypes[1] = Unicode;
-    if (add_loop(umath, "find", &spec, string_isalpha_loop<npy_ucs4>) < 0) {
+    if (add_loop(umath, "find", &spec, string_find_loop<npy_ucs4>) < 0) {
         goto finish;
     }
 

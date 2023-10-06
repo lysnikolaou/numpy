@@ -2270,3 +2270,18 @@ PyUFunc_DivmodTypeResolver(PyUFuncObject *ufunc,
 
     return 0;
 }
+
+NPY_NO_EXPORT int
+PyUFunc_FindTypeResolver(PyUFuncObject *ufunc,
+                                NPY_CASTING casting,
+                                PyArrayObject **operands,
+                                PyObject *type_tup,
+                                PyArray_Descr **out_dtypes)
+{
+    out_dtypes[0] = NPY_DT_CALL_ensure_canonical(PyArray_DESCR(operands[0]));
+    out_dtypes[1] = NPY_DT_CALL_ensure_canonical(PyArray_DESCR(operands[1]));
+    out_dtypes[2] = NPY_DT_CALL_ensure_canonical(PyArray_DESCR(operands[2]));
+    out_dtypes[3] = NPY_DT_CALL_ensure_canonical(PyArray_DESCR(operands[3]));
+    out_dtypes[4] = PyArray_DescrFromType(NPY_LONG);
+    return 0;
+}
