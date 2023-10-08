@@ -1146,6 +1146,11 @@ defdict = {
     Ufunc(4, 1, AllOnes,
           docstrings.get('numpy.core.umath.find'),
           "PyUFunc_FindTypeResolver",
+          ),
+'rfind':
+    Ufunc(4, 1, AllOnes,
+          docstrings.get('numpy.core.umath.rfind'),
+          "PyUFunc_FindTypeResolver",
           )
 }
 

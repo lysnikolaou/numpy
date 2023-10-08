@@ -65,7 +65,7 @@ get_length(const character *str, int elsize)
 
 template <typename character>
 static inline Py_ssize_t
-find_slice(const character* str, Py_ssize_t str_len,
+findslice(const character* str, Py_ssize_t str_len,
            const character* sub, Py_ssize_t sub_len,
            Py_ssize_t offset)
 {
@@ -76,6 +76,27 @@ find_slice(const character* str, Py_ssize_t str_len,
     }
 
     pos = fastsearch<character>(str, str_len, sub, sub_len, -1, FAST_SEARCH);
+
+    if (pos >= 0) {
+        pos += offset;
+    }
+
+    return pos;
+}
+
+template <typename character>
+static inline Py_ssize_t
+rfindslice(const character* str, Py_ssize_t str_len,
+           const character* sub, Py_ssize_t sub_len,
+           Py_ssize_t offset)
+{
+    Py_ssize_t pos;
+
+    if (sub_len == 0) {
+        return str_len + offset;
+    }
+
+    pos = fastsearch<character>(str, str_len, sub, sub_len, -1, FAST_RSEARCH);
 
     if (pos >= 0) {
         pos += offset;
@@ -204,7 +225,35 @@ string_find(character *str1, int elsize1, character *str2, int elsize2, npy_long
         }
     }
 
-    return find_slice<character>(str1 + start, end - start, str2, len2, start);
+    return findslice<character>(str1 + start, end - start, str2, len2, start);
+}
+
+template <typename character>
+static inline npy_long
+string_rfind(character *str1, int elsize1, character *str2, int elsize2, npy_long start, npy_long end)
+{
+    int len1, len2;
+    npy_long result;
+
+    len1 = get_length<character>(str1, elsize1);
+    len2 = get_length<character>(str2, elsize2);
+
+    ADJUST_INDICES(start, end, len1);
+    if (end - start < len2) {
+        return (npy_long) -1;
+    }
+
+    if (len2 == 1) {
+        character ch = *str2;
+        result = rfindchar<character>(str1 + start, end - start, ch);
+        if (result == -1) {
+            return -1;
+        } else {
+            return start + result;
+        }
+    }
+
+    return rfindslice<character>(str1 + start, end - start, str2, len2, start);
 }
 
 
@@ -346,6 +395,36 @@ string_find_loop(PyArrayMethod_Context *context,
     return 0;
 }
 
+template<typename character>
+static int
+string_rfind_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    int elsize1 = context->descriptors[0]->elsize / sizeof(character);
+    int elsize2 = context->descriptors[1]->elsize / sizeof(character);
+
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *in3 = data[2];
+    char *in4 = data[3];
+    char *out = data[4];
+
+    npy_intp N = dimensions[0];
+
+    while (N--) {
+        npy_long idx = string_rfind<character>((character *) in1, elsize1, (character *) in2, elsize2,
+                                              *(npy_long *)in3, *(npy_long *)in4);
+        *(npy_long *)out = idx;
+
+        in1 += strides[0];
+        in2 += strides[1];
+        in3 += strides[2];
+        in4 += strides[3];
+        out += strides[4];
+    }
+    return 0;
+}
 
 /*
  * Machinery to add the string loops to the existing ufuncs.
@@ -549,6 +628,55 @@ init_find(PyObject *umath)
 }
 
 
+static int
+init_rfind(PyObject *umath)
+{
+    int res = -1;
+    /* NOTE: This should receive global symbols? */
+    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
+    PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
+    PyArray_DTypeMeta *Long = PyArray_DTypeFromTypeNum(NPY_LONG);
+
+    /* We start with the string loops: */
+    PyArray_DTypeMeta *dtypes[] = {String, String, Long, Long, Long};
+    /*
+     * We only have one loop right now, the strided one.  The default type
+     * resolver ensures native byte order/canonical representation.
+     */
+    PyType_Slot slots[] = {
+        {NPY_METH_strided_loop, nullptr},
+        {0, nullptr}
+    };
+
+    PyArrayMethod_Spec spec = {};
+    spec.name = "templated_string_rfind";
+    spec.nin = 4;
+    spec.nout = 1;
+    spec.dtypes = dtypes;
+    spec.slots = slots;
+    spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
+
+    /* All String loops */
+    if (add_loop(umath, "rfind", &spec, string_rfind_loop<npy_byte>) < 0) {
+        goto finish;
+    }
+
+    /* All Unicode loops */
+    dtypes[0] = Unicode;
+    dtypes[1] = Unicode;
+    if (add_loop(umath, "rfind", &spec, string_rfind_loop<npy_ucs4>) < 0) {
+        goto finish;
+    }
+
+    res = 0;
+  finish:
+    Py_DECREF(String);
+    Py_DECREF(Unicode);
+    Py_DECREF(Long);
+    return res;
+}
+
+
 NPY_NO_EXPORT int
 init_string_ufuncs(PyObject *umath)
 {
@@ -561,6 +689,10 @@ init_string_ufuncs(PyObject *umath)
     }
 
     if (init_find(umath) < 0) {
+        return -1;
+    }
+
+    if (init_rfind(umath) < 0) {
         return -1;
     }
 
