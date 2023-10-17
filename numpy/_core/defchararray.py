@@ -321,7 +321,6 @@ def add(x1, x2):
     """
     arr1 = numpy.asarray(x1)
     arr2 = numpy.asarray(x2)
-    out_size = _get_num_chars(arr1) + _get_num_chars(arr2)
 
     if type(arr1.dtype) != type(arr2.dtype):
         # Enforce this for now.  The solution to it will be implement add
@@ -334,7 +333,7 @@ def add(x1, x2):
             f"got dtypes: '{arr1.dtype}' and '{arr2.dtype}' (the few cases "
             "where this used to work often lead to incorrect results).")
 
-    return _vec_string(arr1, type(arr1.dtype)(out_size), '__add__', (arr2,))
+    return numpy.add(x1, x2)
 
 def _multiply_dispatcher(a, i):
     return (a,)
@@ -775,9 +774,8 @@ def find(a, sub, start=0, end=None):
     array([11])
 
     """
-    return _vec_string(
-        a, int_, 'find', [sub, start] + _clean_args(end))
-
+    end = end or numpy.iinfo(numpy.int_).max
+    return numpy._core.umath.find(a, sub, start, end)
 
 @array_function_dispatch(_count_dispatcher)
 def index(a, sub, start=0, end=None):
@@ -1305,8 +1303,8 @@ def rfind(a, sub, start=0, end=None):
     str.rfind
 
     """
-    return _vec_string(
-        a, int_, 'rfind', [sub, start] + _clean_args(end))
+    end = end or numpy.iinfo(numpy.int_).max
+    return numpy._core.umath.rfind(a, sub, start, end)
 
 
 @array_function_dispatch(_count_dispatcher)
@@ -2202,7 +2200,7 @@ class chararray(ndarray):
         --------
         add
         """
-        return asarray(add(self, other))
+        return add(self, other)
 
     def __radd__(self, other):
         """
@@ -2213,7 +2211,7 @@ class chararray(ndarray):
         --------
         add
         """
-        return asarray(add(numpy.asarray(other), self))
+        return add(other, self)
 
     def __mul__(self, i):
         """
