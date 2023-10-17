@@ -19,7 +19,7 @@ import pprint
 import sysconfig
 
 import numpy as np
-from numpy.core import (
+from numpy._core import (
      intp, float32, empty, arange, array_repr, ndarray, isnat, array)
 from numpy import isfinite, isnan, isinf
 import numpy.linalg._umath_linalg
@@ -184,6 +184,7 @@ else:
 def build_err_msg(arrays, err_msg, header='Items are not equal:',
                   verbose=True, names=('ACTUAL', 'DESIRED'), precision=8):
     msg = ['\n' + header]
+    err_msg = str(err_msg)
     if err_msg:
         if err_msg.find('\n') == -1 and len(err_msg) < 79-len(header):
             msg = [msg[0] + ' ' + err_msg]
@@ -325,7 +326,7 @@ def assert_equal(actual, desired, err_msg='', verbose=True, *, strict=False):
             assert_equal(actual[k], desired[k], f'item={k!r}\n{err_msg}',
                          verbose)
         return
-    from numpy.core import ndarray, isscalar, signbit
+    from numpy._core import ndarray, isscalar, signbit
     from numpy import iscomplexobj, real, imag
     if isinstance(actual, ndarray) or isinstance(desired, ndarray):
         return assert_array_equal(actual, desired, err_msg, verbose,
@@ -531,7 +532,7 @@ def assert_almost_equal(actual, desired, decimal=7, err_msg='', verbose=True):
 
     """
     __tracebackhide__ = True  # Hide traceback for py.test
-    from numpy.core import ndarray
+    from numpy._core import ndarray
     from numpy import iscomplexobj, real, imag
 
     # Handle complex numbers: separate into real/imag to handle
@@ -693,7 +694,7 @@ def assert_array_compare(comparison, x, y, err_msg='', verbose=True, header='',
                          precision=6, equal_nan=True, equal_inf=True,
                          *, strict=False):
     __tracebackhide__ = True  # Hide traceback for py.test
-    from numpy.core import (array2string, isnan, inf, bool_, errstate,
+    from numpy._core import (array2string, isnan, inf, bool_, errstate,
                             all, max, object_)
 
     x = np.asanyarray(x)
@@ -840,6 +841,7 @@ def assert_array_compare(comparison, x, y, err_msg='', verbose=True, header='',
                         remarks.append('Max relative difference: '
                                        + array2string(max_rel_error))
 
+            err_msg = str(err_msg)
             err_msg += '\n' + '\n'.join(remarks)
             msg = build_err_msg([ox, oy], err_msg,
                                 verbose=verbose, header=header,
@@ -868,6 +870,16 @@ def assert_array_equal(x, y, err_msg='', verbose=True, *, strict=False):
 
     The usual caution for verifying equality with floating point numbers is
     advised.
+
+    .. note:: When either `x` or `y` is already an instance of `numpy.ndarray`
+        and `y` is not a ``dict``, the behavior of ``assert_equal(x, y)`` is
+        identical to the behavior of this function. Otherwise, this function
+        performs `np.asanyarray` on the inputs before comparison, whereas
+        `assert_equal` defines special comparison rules for common Python
+        types. For example, only `assert_equal` can be used to compare nested
+        Python lists. In new code, consider using only `assert_equal`,
+        explicitly converting either `x` or `y` to arrays if the behavior of
+        `assert_array_equal` is desired.
 
     Parameters
     ----------
@@ -1051,9 +1063,9 @@ def assert_array_almost_equal(x, y, decimal=6, err_msg='', verbose=True):
 
     """
     __tracebackhide__ = True  # Hide traceback for py.test
-    from numpy.core import number, result_type
-    from numpy.core.numerictypes import issubdtype
-    from numpy.core.fromnumeric import any as npany
+    from numpy._core import number, result_type
+    from numpy._core.numerictypes import issubdtype
+    from numpy._core.fromnumeric import any as npany
 
     def compare(x, y):
         try:
@@ -1621,7 +1633,7 @@ def assert_allclose(actual, desired, rtol=1e-7, atol=0, equal_nan=True,
     import numpy as np
 
     def compare(x, y):
-        return np.core.numeric.isclose(x, y, rtol=rtol, atol=atol,
+        return np._core.numeric.isclose(x, y, rtol=rtol, atol=atol,
                                        equal_nan=equal_nan)
 
     actual, desired = np.asanyarray(actual), np.asanyarray(desired)
@@ -2097,11 +2109,11 @@ class clear_and_catch_warnings(warnings.catch_warnings):
     --------
     >>> import warnings
     >>> with np.testing.clear_and_catch_warnings(
-    ...         modules=[np.core.fromnumeric]):
+    ...         modules=[np._core.fromnumeric]):
     ...     warnings.simplefilter('always')
-    ...     warnings.filterwarnings('ignore', module='np.core.fromnumeric')
+    ...     warnings.filterwarnings('ignore', module='np._core.fromnumeric')
     ...     # do something that raises a warning but ignore those in
-    ...     # np.core.fromnumeric
+    ...     # np._core.fromnumeric
     """
     class_modules = ()
 
@@ -2632,4 +2644,3 @@ def _get_glibc_version():
 
 _glibcver = _get_glibc_version()
 _glibc_older_than = lambda x: (_glibcver != '0.0' and _glibcver < x)
-

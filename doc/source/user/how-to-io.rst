@@ -319,6 +319,9 @@ Use :func:`numpy.save` and :func:`numpy.load`.  Set ``allow_pickle=False``,
 unless the array dtype includes Python objects, in which case pickling is
 required.
 
+:func:`numpy.load` and `pickle` submodule also support unpickling files
+created with NumPy 1.26.
+
 Convert from a pandas DataFrame to a NumPy array
 ================================================
 
