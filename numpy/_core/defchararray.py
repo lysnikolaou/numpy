@@ -775,7 +775,7 @@ def find(a, sub, start=0, end=None):
 
     """
     end = end or numpy.iinfo(numpy.int_).max
-    return numpy.core.umath.find(a, sub, start, end)
+    return numpy._core.umath.find(a, sub, start, end)
 
 @array_function_dispatch(_count_dispatcher)
 def index(a, sub, start=0, end=None):
@@ -1304,7 +1304,7 @@ def rfind(a, sub, start=0, end=None):
 
     """
     end = end or numpy.iinfo(numpy.int_).max
-    return numpy.core.umath.rfind(a, sub, start, end)
+    return numpy._core.umath.rfind(a, sub, start, end)
 
 
 @array_function_dispatch(_count_dispatcher)
