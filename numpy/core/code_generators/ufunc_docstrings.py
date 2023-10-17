@@ -4350,3 +4350,82 @@ add_newdoc('numpy.core.umath', 'rfind',
     array([11])
 
     """)
+
+add_newdoc('numpy.core.umath', 'count',
+    """
+    Returns an array with the number of non-overlapping occurrences of
+    substring `x2` in the range [`x3`, `x4`].
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``unicode_`` dtype
+
+    x2 : array_like, with ``bytes_`` or ``unicode_`` dtype
+
+    x3 : array_like, with ``int_`` dtype
+
+    x4 : array_like, with ``int_`` dtype
+        $PARAMS
+
+    `x3` and `x4` are interpreted as in slice notation.
+
+    Returns
+    -------
+    y : ndarray
+        Output array of ints
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.count
+
+    Examples
+    --------
+    >>> c = np.array(['aAaAaA', '  aA  ', 'abBABba'])
+    >>> c
+    array(['aAaAaA', '  aA  ', 'abBABba'], dtype='<U7')
+    >>> np.core.umath.count(c, 'A')
+    array([3, 1, 1])
+    >>> np.core.umath.count(c, 'aA')
+    array([3, 1, 0])
+    >>> np.core.umath.count(c, 'A', start=1, end=4)
+    array([2, 1, 1])
+    >>> np.core.umath.count(c, 'A', start=1, end=3)
+    array([1, 0, 0])
+
+    """)
+
+add_newdoc('numpy.core.umath', '__replace_impl', '')
+
+add_newdoc('numpy.core.umath', 'str_len',
+    """
+    Return length of ``x1`` element-wise.
+
+    Parameters
+    ----------
+    x : array_like, with ``bytes_`` or ``unicode_`` dtype
+        $PARAMS
+
+    Returns
+    -------
+    y : ndarray
+        Output array of ints
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    len
+
+    Examples
+    --------
+    >>> a = np.array(['Grace Hopper Conference', 'Open Source Day'])
+    >>> np.core.umath.str_len(a)
+    array([23, 15])
+    >>> a = np.array([u'\u0420', u'\u043e'])
+    >>> np.core.umath.str_len(a)
+    array([1, 1])
+    >>> a = np.array([['hello', 'world'], [u'\u0420', u'\u043e']])
+    >>> np.core.umath.str_len(a)
+    array([[5, 5], [1, 1]])
+
+    """)

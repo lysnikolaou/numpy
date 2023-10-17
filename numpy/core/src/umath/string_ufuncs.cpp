@@ -105,6 +105,30 @@ rfindslice(const character* str, Py_ssize_t str_len,
     return pos;
 }
 
+template <typename character>
+static inline Py_ssize_t
+countslice(const character* str, Py_ssize_t str_len,
+           const character* sub, Py_ssize_t sub_len,
+           Py_ssize_t maxcount)
+{
+    Py_ssize_t count;
+
+    if (str_len < 0) {
+        return 0; /* start > len(str) */
+    }
+    if (sub_len == 0) {
+        return (str_len < maxcount) ? str_len + 1 : maxcount;
+    }
+
+    count = fastsearch<character>(str, str_len, sub, sub_len, maxcount, FAST_COUNT);
+
+    if (count < 0) {
+        return 0; /* no match */
+    }
+
+    return count;
+}
+
 /*
  * Compare two strings of different length.  Note that either string may be
  * zero padded (trailing zeros are ignored in other words, the shorter word
@@ -256,6 +280,31 @@ string_rfind(character *str1, int elsize1, character *str2, int elsize2, npy_lon
     return rfindslice<character>(str1 + start, end - start, str2, len2, start);
 }
 
+template <typename character>
+static inline npy_long
+string_count(character *str1, int elsize1, character *str2, int elsize2, npy_long start, npy_long end)
+{
+    int len1, len2;
+
+    len1 = get_length<character>(str1, elsize1);
+    len2 = get_length<character>(str2, elsize2);
+
+    ADJUST_INDICES(start, end, len1);
+    if (end - start < len2) {
+        return (npy_long) 0;
+    }
+
+    return countslice<character>(str1 + start, end - start, str2, len2, PY_SSIZE_T_MAX);
+}
+
+template <typename character>
+static inline void
+string_replace(character *str1, int elsize1, character *str2, int elsize2, character *str3, int elsize3,
+               npy_long count, character *out, int outsize)
+{
+    memset(out, 'h', outsize * sizeof(character));
+}
+
 
 /*
  * Helper for templating, avoids warnings about uncovered switch paths.
@@ -333,6 +382,29 @@ string_comparison_loop(PyArrayMethod_Context *context,
     return 0;
 }
 
+template <typename character>
+static int
+string_str_len_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    int elsize = context->descriptors[0]->elsize / sizeof(character);
+
+    char *in = data[0];
+    char *out = data[1];
+
+    npy_intp N = dimensions[0];
+
+    while (N--) {
+        npy_bool res = get_length<character>((character *) in, elsize);
+        *(npy_long *)out = res;
+
+        in += strides[0];
+        out += strides[1];
+    }
+
+    return 0;
+}
 
 template <typename character>
 static int
@@ -416,6 +488,70 @@ string_rfind_loop(PyArrayMethod_Context *context,
         npy_long idx = string_rfind<character>((character *) in1, elsize1, (character *) in2, elsize2,
                                               *(npy_long *)in3, *(npy_long *)in4);
         *(npy_long *)out = idx;
+
+        in1 += strides[0];
+        in2 += strides[1];
+        in3 += strides[2];
+        in4 += strides[3];
+        out += strides[4];
+    }
+    return 0;
+}
+
+template<typename character>
+static int
+string_count_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    int elsize1 = context->descriptors[0]->elsize / sizeof(character);
+    int elsize2 = context->descriptors[1]->elsize / sizeof(character);
+
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *in3 = data[2];
+    char *in4 = data[3];
+    char *out = data[4];
+
+    npy_intp N = dimensions[0];
+
+    while (N--) {
+        npy_long idx = string_count<character>((character *) in1, elsize1, (character *) in2, elsize2,
+                                              *(npy_long *)in3, *(npy_long *)in4);
+        *(npy_long *)out = idx;
+
+        in1 += strides[0];
+        in2 += strides[1];
+        in3 += strides[2];
+        in4 += strides[3];
+        out += strides[4];
+    }
+    return 0;
+}
+
+template<typename character>
+static int
+string_replace_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    int elsize1 = context->descriptors[0]->elsize / sizeof(character);
+    int elsize2 = context->descriptors[1]->elsize / sizeof(character);
+    int elsize3 = context->descriptors[2]->elsize / sizeof(character);
+    int outsize = context->descriptors[4]->elsize / sizeof(character);
+
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *in3 = data[2];
+    char *in4 = data[3];
+    char *out = data[4];
+
+    npy_intp N = dimensions[0];
+
+    while (N--) {
+        string_replace<character>((character *) in1, elsize1, (character *) in2, elsize2,
+                                  (character *) in3, elsize3, *(npy_long *)in4,
+                                  (character *) out, outsize);
 
         in1 += strides[0];
         in2 += strides[1];
@@ -528,6 +664,55 @@ init_comparison(PyObject *umath)
     Py_DECREF(Unicode);
     Py_DECREF(Bool);
     return res;
+}
+
+static int
+init_str_len(PyObject *umath)
+{
+    {
+    int res = -1;
+    /* NOTE: This should receive global symbols? */
+    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
+    PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
+    PyArray_DTypeMeta *Long = PyArray_DTypeFromTypeNum(NPY_LONG);
+
+    /* We start with the string loops: */
+    PyArray_DTypeMeta *dtypes[] = {String, Long};
+    /*
+     * We only have one loop right now, the strided one.  The default type
+     * resolver ensures native byte order/canonical representation.
+     */
+    PyType_Slot slots[] = {
+        {NPY_METH_strided_loop, nullptr},
+        {0, nullptr}
+    };
+
+    PyArrayMethod_Spec spec = {};
+    spec.name = "templated_string_str_len";
+    spec.nin = 1;
+    spec.nout = 1;
+    spec.dtypes = dtypes;
+    spec.slots = slots;
+    spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
+
+    /* All String loops */
+    if (add_loop(umath, "str_len", &spec, string_str_len_loop<npy_byte>) < 0) {
+        goto finish;
+    }
+
+    /* All Unicode loops */
+    dtypes[0] = Unicode;
+    if (add_loop(umath, "str_len", &spec, string_str_len_loop<npy_ucs4>) < 0) {
+        goto finish;
+    }
+
+    res = 0;
+  finish:
+    Py_DECREF(String);
+    Py_DECREF(Unicode);
+    Py_DECREF(Long);
+    return res;
+}
 }
 
 
@@ -677,10 +862,138 @@ init_rfind(PyObject *umath)
 }
 
 
+static int
+init_count(PyObject *umath)
+{
+    int res = -1;
+    /* NOTE: This should receive global symbols? */
+    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
+    PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
+    PyArray_DTypeMeta *Long = PyArray_DTypeFromTypeNum(NPY_LONG);
+
+    /* We start with the string loops: */
+    PyArray_DTypeMeta *dtypes[] = {String, String, Long, Long, Long};
+    /*
+     * We only have one loop right now, the strided one.  The default type
+     * resolver ensures native byte order/canonical representation.
+     */
+    PyType_Slot slots[] = {
+        {NPY_METH_strided_loop, nullptr},
+        {0, nullptr}
+    };
+
+    PyArrayMethod_Spec spec = {};
+    spec.name = "templated_string_count";
+    spec.nin = 4;
+    spec.nout = 1;
+    spec.dtypes = dtypes;
+    spec.slots = slots;
+    spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
+
+    /* All String loops */
+    if (add_loop(umath, "count", &spec, string_count_loop<npy_byte>) < 0) {
+        goto finish;
+    }
+
+    /* All Unicode loops */
+    dtypes[0] = Unicode;
+    dtypes[1] = Unicode;
+    if (add_loop(umath, "count", &spec, string_count_loop<npy_ucs4>) < 0) {
+        goto finish;
+    }
+
+    res = 0;
+  finish:
+    Py_DECREF(String);
+    Py_DECREF(Unicode);
+    Py_DECREF(Long);
+    return res;
+}
+
+
+static NPY_CASTING
+string_replace_resolve_descriptors(
+        PyArrayMethodObject *NPY_UNUSED(self),
+        PyArray_DTypeMeta *NPY_UNUSED(dtypes[3]),
+        PyArray_Descr *given_descrs[5],
+        PyArray_Descr *loop_descrs[5],
+        npy_intp *NPY_UNUSED(view_offset))
+{
+    if (given_descrs[4] == NULL) {
+        PyErr_SetString(PyExc_ValueError, "out kwarg should be given");
+        return _NPY_ERROR_OCCURRED_IN_CAST;
+    }
+    loop_descrs[0] = NPY_DT_CALL_ensure_canonical(given_descrs[0]);
+    loop_descrs[1] = NPY_DT_CALL_ensure_canonical(given_descrs[1]);
+    loop_descrs[2] = NPY_DT_CALL_ensure_canonical(given_descrs[2]);
+    loop_descrs[3] = NPY_DT_CALL_ensure_canonical(given_descrs[3]);
+
+    Py_INCREF(given_descrs[4]);
+    loop_descrs[4] = given_descrs[4];
+    return NPY_NO_CASTING;
+}
+
+
+static int
+init_replace(PyObject *umath)
+{
+    int res = -1;
+    /* NOTE: This should receive global symbols? */
+    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
+    PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
+    PyArray_DTypeMeta *Long = PyArray_DTypeFromTypeNum(NPY_LONG);
+
+    /* We start with the string loops: */
+    PyArray_DTypeMeta *dtypes[] = {String, String, String, Long, String};
+    /*
+     * We only have one loop right now, the strided one.  The default type
+     * resolver ensures native byte order/canonical representation.
+     */
+    PyType_Slot slots[] = {
+        {NPY_METH_strided_loop, nullptr},
+        {NPY_METH_resolve_descriptors, (void *) &string_replace_resolve_descriptors},
+        {0, nullptr}
+    };
+
+    PyArrayMethod_Spec spec = {};
+    spec.name = "templated_string_replace";
+    spec.nin = 4;
+    spec.nout = 1;
+    spec.dtypes = dtypes;
+    spec.slots = slots;
+    spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
+
+    /* All String loops */
+    if (add_loop(umath, "__replace_impl", &spec, string_replace_loop<npy_byte>) < 0) {
+        goto finish;
+    }
+
+    /* All Unicode loops */
+    dtypes[0] = Unicode;
+    dtypes[1] = Unicode;
+    dtypes[2] = Unicode;
+    dtypes[4] = Unicode;
+    if (add_loop(umath, "__replace_impl", &spec, string_replace_loop<npy_ucs4>) < 0) {
+        goto finish;
+    }
+
+    res = 0;
+  finish:
+    Py_DECREF(String);
+    Py_DECREF(Unicode);
+    Py_DECREF(Long);
+    return res;
+}
+
+
 NPY_NO_EXPORT int
 init_string_ufuncs(PyObject *umath)
 {
     if (init_comparison(umath) < 0) {
+        return -1;
+    }
+
+    if (init_str_len(umath) < 0) {
         return -1;
     }
 
@@ -693,6 +1006,14 @@ init_string_ufuncs(PyObject *umath)
     }
 
     if (init_rfind(umath) < 0) {
+        return -1;
+    }
+
+    if (init_count(umath) < 0) {
+        return -1;
+    }
+
+    if (init_replace(umath) < 0) {
         return -1;
     }
 
