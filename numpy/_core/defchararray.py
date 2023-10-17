@@ -808,8 +808,8 @@ def index(a, sub, start=0, end=None):
     array([9])
 
     """
-    end = end or numpy.iinfo(numpy.int_).max
-    return numpy.core.umath.find(a, sub, start, end)
+    return _vec_string(
+        a, int_, 'index', [sub, start] + _clean_args(end))
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -1303,8 +1303,8 @@ def rfind(a, sub, start=0, end=None):
     str.rfind
 
     """
-    return _vec_string(
-        a, int_, 'rfind', [sub, start] + _clean_args(end))
+    end = end or numpy.iinfo(numpy.int_).max
+    return numpy.core.umath.rfind(a, sub, start, end)
 
 
 @array_function_dispatch(_count_dispatcher)
