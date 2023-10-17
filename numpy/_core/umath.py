@@ -76,4 +76,5 @@ def replace(x1, x2, x3, x4):
     counts = count(x1, x2, 0, numpy.iinfo(numpy.int_).max)
     buffersizes = numpy.char.str_len(x1) + counts * (numpy.char.str_len(x3)-numpy.char.str_len(x2))
     out = numpy.empty(x1.shape, dtype=f"{x1.dtype.char}{numpy.max(buffersizes)}")
-    return __replace_impl(x1, x2, x3, x4, out=out)
+    __replace_impl(x1, x2, x3, x4, out=out)
+    return out

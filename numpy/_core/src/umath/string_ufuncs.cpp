@@ -332,14 +332,14 @@ string_replace(character *str1, int elsize1, character *str2, int elsize2, chara
     int len3 = get_length<character>(str3, elsize3);
 
     if (len1 < len2
-        || (len1 == 0 && len2 == 0)
+        || (len2 == 0 && len3 == 0)
         || count == 0
         || string_cmp<false, character>(str2, elsize2, str3, elsize3) == 0) {
         return;
     }
 
     character *end1 = str1 + len1;
-    int time = count;
+    npy_long time = count;
     int pos = (len2 == 1)
               ? findchar(str1, len1, *str2)
               : findslice<character>(str1, len1, str2, len2, 0);
