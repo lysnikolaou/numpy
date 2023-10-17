@@ -34,6 +34,16 @@ character_cmp(character a, character b)
     }
 }
 
+template <typename character>
+static inline character
+string_max_char()
+{
+    if (std::is_same<character, npy_byte>::value) {
+        return (character) 0x7fU;
+    }
+    return (character) 0x10ffffU;
+}
+
 template<typename character>
 static inline int
 string_rstrip(const character *str, int elsize)
@@ -302,7 +312,38 @@ static inline void
 string_replace(character *str1, int elsize1, character *str2, int elsize2, character *str3, int elsize3,
                npy_long count, character *out, int outsize)
 {
-    memset(out, 'h', outsize * sizeof(character));
+    int len1 = get_length<character>(str1, elsize1);
+    int len2 = get_length<character>(str2, elsize2);
+    int len3 = get_length<character>(str3, elsize3);
+
+    if (len1 < len2
+        || (len1 == 0 && len2 == 0)
+        || count == 0
+        || string_cmp<false, character>(str2, elsize2, str3, elsize3) == 0) {
+        return;
+    }
+
+    character *end1 = str1 + len1;
+    int time = count;
+    int pos = (len2 == 1)
+              ? findchar(str1, len1, *str2)
+              : findslice<character>(str1, len1, str2, len2, 0);
+    while (time > 0 && pos >= 0) {
+        memcpy(out, str1, pos * sizeof(character));
+        out += pos;
+        str1 += pos;
+        memcpy(out, str3, len3 * sizeof(character));
+        out += len3;
+        str1 += len2;
+
+        time--;
+        pos = (len2 == 1)
+              ? findchar(str1, end1 - str1, *str2)
+              : findslice<character>(str1, end1 - str1, str2, len2, 0);
+    }
+
+    memcpy(out, str1, (end1 - str1) * sizeof(character));
+    return;
 }
 
 
