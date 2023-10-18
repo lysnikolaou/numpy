@@ -16,12 +16,11 @@
    for some more background, see:
    https://web.archive.org/web/20201107074620/http://effbot.org/zone/stringlib.htm */
 
-/* note: fastsearch may access s[n], which isn't a problem when using
-   Python's ordinary string types, but may cause problems if you're
-   using this code in other contexts.  also, the count mode returns -1
-   if there cannot possibly be a match in the target string, and 0 if
-   it has actually checked for matches, but didn't find any.  callers
-   beware! */
+/* note: fastsearch may access s[n], but this is being checked for in this
+   implementation, because NumPy strings are not NULL-terminated.
+   also, the count mode returns -1 if there cannot possibly be a match
+   in the target string, and 0 if it has actually checked for matches,
+   but didn't find any. callers beware! */
 
 /* If the strings are long enough, use Crochemore and Perrin's Two-Way
    algorithm, which has worst-case O(n) runtime and best-case O(n/k).
@@ -52,6 +51,8 @@
 #define FORWARD_DIRECTION 1
 #define BACKWARD_DIRECTION -1
 #define MEMCHR_CUT_OFF 15
+
+#define READC(s, i, eob) ((s) + (i) < (eob) ? (s)[(i)] : 0)
 
 template <typename character>
 static inline const character *
@@ -305,7 +306,7 @@ _preprocess(const character *needle, Py_ssize_t len_needle,
 template <typename character>
 static Py_ssize_t
 _two_way(const character *haystack, Py_ssize_t len_haystack,
-         prework<character> *p)
+         prework<character> *p, const character *endofbuffer)
 {
     // Crochemore and Perrin's (1991) Two-Way algorithm.
     // See http://www-igm.univ-mlv.fr/~lecroq/string/node26.html#SECTION00260
@@ -327,7 +328,7 @@ _two_way(const character *haystack, Py_ssize_t len_haystack,
             assert(memory == 0);
             for (;;) {
                 LOG_LINEUP();
-                Py_ssize_t shift = table[(*window_last) & TABLE_MASK];
+                Py_ssize_t shift = table[READC(window_last, 0, endofbuffer) & TABLE_MASK];
                 window_last += shift;
                 if (shift == 0) {
                     break;
@@ -339,11 +340,11 @@ _two_way(const character *haystack, Py_ssize_t len_haystack,
             }
           no_shift:
             window = window_last - len_needle + 1;
-            assert((window[len_needle - 1] & TABLE_MASK) ==
+            assert((READC(window, len_needle - 1, endofbuffer) & TABLE_MASK) ==
                    (needle[len_needle - 1] & TABLE_MASK));
             Py_ssize_t i = Py_MAX(cut, memory);
             for (; i < len_needle; i++) {
-                if (needle[i] != window[i]) {
+                if (needle[i] != READC(window, i, endofbuffer)) {
                     LOG("Right half does not match.\n");
                     window_last += i - cut + 1;
                     memory = 0;
@@ -351,14 +352,14 @@ _two_way(const character *haystack, Py_ssize_t len_haystack,
                 }
             }
             for (i = memory; i < cut; i++) {
-                if (needle[i] != window[i]) {
+                if (needle[i] != READC(window, i, endofbuffer)) {
                     LOG("Left half does not match.\n");
                     window_last += period;
                     memory = len_needle - period;
                     if (window_last >= haystack_end) {
                         return -1;
                     }
-                    Py_ssize_t shift = table[(*window_last) & TABLE_MASK];
+                    Py_ssize_t shift = table[READC(window_last, 0, endofbuffer) & TABLE_MASK];
                     if (shift) {
                         // A mismatch has been identified to the right
                         // of where i will next start, so we can jump
@@ -386,7 +387,7 @@ _two_way(const character *haystack, Py_ssize_t len_haystack,
         while (window_last < haystack_end) {
             for (;;) {
                 LOG_LINEUP();
-                Py_ssize_t shift = table[(*window_last) & TABLE_MASK];
+                Py_ssize_t shift = table[READC(window_last, 0, endofbuffer) & TABLE_MASK];
                 window_last += shift;
                 if (shift == 0) {
                     break;
@@ -397,10 +398,10 @@ _two_way(const character *haystack, Py_ssize_t len_haystack,
                 LOG("Horspool skip\n");
             }
             window = window_last - len_needle + 1;
-            assert((window[len_needle - 1] & TABLE_MASK) ==
+            assert((READC(window, len_needle - 1, endofbuffer) & TABLE_MASK) ==
                    (needle[len_needle - 1] & TABLE_MASK));
             for (Py_ssize_t i = cut; i < gap_jump_end; i++) {
-                if (needle[i] != window[i]) {
+                if (needle[i] != READC(window, i, endofbuffer)) {
                     LOG("Early right half mismatch: jump by gap.\n");
                     assert(gap >= i - cut + 1);
                     window_last += gap;
@@ -408,7 +409,7 @@ _two_way(const character *haystack, Py_ssize_t len_haystack,
                 }
             }
             for (Py_ssize_t i = gap_jump_end; i < len_needle; i++) {
-                if (needle[i] != window[i]) {
+                if (needle[i] != READC(window, i, endofbuffer)) {
                     LOG("Late right half mismatch.\n");
                     assert(i - cut + 1 > gap);
                     window_last += i - cut + 1;
@@ -416,7 +417,7 @@ _two_way(const character *haystack, Py_ssize_t len_haystack,
                 }
             }
             for (Py_ssize_t i = 0; i < cut; i++) {
-                if (needle[i] != window[i]) {
+                if (needle[i] != READC(window, i, endofbuffer)) {
                     LOG("Left half does not match.\n");
                     window_last += period;
                     goto windowloop;
@@ -434,12 +435,13 @@ _two_way(const character *haystack, Py_ssize_t len_haystack,
 template <typename character>
 static inline Py_ssize_t
 _two_way_find(const character *haystack, Py_ssize_t len_haystack,
-              const character *needle, Py_ssize_t len_needle)
+              const character *needle, Py_ssize_t len_needle,
+              const character *endofbuffer)
 {
     LOG("###### Finding \"%s\" in \"%s\".\n", needle, haystack);
     prework<character> p;
     _preprocess<character>(needle, len_needle, &p);
-    return _two_way<character>(haystack, len_haystack, &p);
+    return _two_way<character>(haystack, len_haystack, &p, endofbuffer);
 }
 
 
@@ -447,7 +449,7 @@ template <typename character>
 static inline Py_ssize_t
 _two_way_count(const character *haystack, Py_ssize_t len_haystack,
                const character *needle, Py_ssize_t len_needle,
-               Py_ssize_t maxcount)
+               Py_ssize_t maxcount, const character *endofbuffer)
 {
     LOG("###### Counting \"%s\" in \"%s\".\n", needle, haystack);
     prework<character> p;
@@ -456,7 +458,8 @@ _two_way_count(const character *haystack, Py_ssize_t len_haystack,
     while (1) {
         Py_ssize_t result;
         result = _two_way<character>(haystack + index,
-                                     len_haystack - index, &p);
+                                     len_haystack - index, &p,
+                                     endofbuffer);
         if (result == -1) {
             return count;
         }
@@ -484,13 +487,14 @@ template <typename character>
 static inline Py_ssize_t
 default_find(const character* s, Py_ssize_t n,
              const character* p, Py_ssize_t m,
-             Py_ssize_t maxcount, int mode)
+             Py_ssize_t maxcount, int mode,
+             const character *endofbuffer)
 {
     const Py_ssize_t w = n - m;
     Py_ssize_t mlast = m - 1, count = 0;
     Py_ssize_t gap = mlast;
     const character last = p[mlast];
-    const character *const ss = &s[mlast];
+    const character *const ss = s + mlast;
 
     unsigned long mask = 0;
     for (Py_ssize_t i = 0; i < mlast; i++) {
@@ -502,11 +506,11 @@ default_find(const character* s, Py_ssize_t n,
     STRINGLIB_BLOOM_ADD(mask, last);
 
     for (Py_ssize_t i = 0; i <= w; i++) {
-        if (ss[i] == last) {
+        if (READC(ss, i, endofbuffer) == last) {
             /* candidate match */
             Py_ssize_t j;
             for (j = 0; j < mlast; j++) {
-                if (s[i+j] != p[j]) {
+                if (READC(s, i+j, endofbuffer) != p[j]) {
                     break;
                 }
             }
@@ -523,7 +527,7 @@ default_find(const character* s, Py_ssize_t n,
                 continue;
             }
             /* miss: check if next character is part of pattern */
-            if (!STRINGLIB_BLOOM(mask, ss[i+1])) {
+            if (!STRINGLIB_BLOOM(mask, READC(ss, i+1, endofbuffer))) {
                 i = i + m;
             }
             else {
@@ -532,7 +536,7 @@ default_find(const character* s, Py_ssize_t n,
         }
         else {
             /* skip: check if next character is part of pattern */
-            if (!STRINGLIB_BLOOM(mask, ss[i+1])) {
+            if (!STRINGLIB_BLOOM(mask, READC(ss, i+1, endofbuffer))) {
                 i = i + m;
             }
         }
@@ -545,14 +549,15 @@ template <typename character>
 static Py_ssize_t
 adaptive_find(const character* s, Py_ssize_t n,
               const character* p, Py_ssize_t m,
-              Py_ssize_t maxcount, int mode)
+              Py_ssize_t maxcount, int mode,
+              const character *endofbuffer)
 {
     const Py_ssize_t w = n - m;
     Py_ssize_t mlast = m - 1, count = 0;
     Py_ssize_t gap = mlast;
     Py_ssize_t hits = 0, res;
     const character last = p[mlast];
-    const character *const ss = &s[mlast];
+    const character *const ss = s + mlast;
 
     unsigned long mask = 0;
     for (Py_ssize_t i = 0; i < mlast; i++) {
@@ -564,11 +569,11 @@ adaptive_find(const character* s, Py_ssize_t n,
     STRINGLIB_BLOOM_ADD(mask, last);
 
     for (Py_ssize_t i = 0; i <= w; i++) {
-        if (ss[i] == last) {
+        if (READC(ss, i, endofbuffer) == last) {
             /* candidate match */
             Py_ssize_t j;
             for (j = 0; j < mlast; j++) {
-                if (s[i+j] != p[j]) {
+                if (READC(s, i+j, endofbuffer) != p[j]) {
                     break;
                 }
             }
@@ -587,17 +592,17 @@ adaptive_find(const character* s, Py_ssize_t n,
             hits += j + 1;
             if (hits > m / 4 && w - i > 2000) {
                 if (mode == FAST_SEARCH) {
-                    res = _two_way_find<character>(s + i, n - i, p, m);
+                    res = _two_way_find<character>(s + i, n - i, p, m, endofbuffer);
                     return res == -1 ? -1 : res + i;
                 }
                 else {
                     res = _two_way_count<character>(s + i, n - i, p, m,
-                                                    maxcount - count);
+                                                    maxcount - count, endofbuffer);
                     return res + count;
                 }
             }
             /* miss: check if next character is part of pattern */
-            if (!STRINGLIB_BLOOM(mask, ss[i+1])) {
+            if (!STRINGLIB_BLOOM(mask, READC(ss, i+1, endofbuffer))) {
                 i = i + m;
             }
             else {
@@ -606,7 +611,7 @@ adaptive_find(const character* s, Py_ssize_t n,
         }
         else {
             /* skip: check if next character is part of pattern */
-            if (!STRINGLIB_BLOOM(mask, ss[i+1])) {
+            if (!STRINGLIB_BLOOM(mask, READC(ss, i+1, endofbuffer))) {
                 i = i + m;
             }
         }
@@ -619,7 +624,8 @@ template <typename character>
 static Py_ssize_t
 default_rfind(const character* s, Py_ssize_t n,
               const character* p, Py_ssize_t m,
-              Py_ssize_t maxcount, int mode)
+              Py_ssize_t maxcount, int mode,
+              const character *endofbuffer)
 {
     /* create compressed boyer-moore delta 1 table */
     unsigned long mask = 0;
@@ -636,10 +642,10 @@ default_rfind(const character* s, Py_ssize_t n,
     }
 
     for (i = w; i >= 0; i--) {
-        if (s[i] == p[0]) {
+        if (READC(s, i, endofbuffer) == p[0]) {
             /* candidate match */
             for (j = mlast; j > 0; j--) {
-                if (s[i+j] != p[j]) {
+                if (READC(s, i+j, endofbuffer) != p[j]) {
                     break;
                 }
             }
@@ -648,7 +654,7 @@ default_rfind(const character* s, Py_ssize_t n,
                 return i;
             }
             /* miss: check if previous character is part of pattern */
-            if (i > 0 && !STRINGLIB_BLOOM(mask, s[i-1])) {
+            if (i > 0 && !STRINGLIB_BLOOM(mask, READC(s, i-1, endofbuffer))) {
                 i = i - m;
             }
             else {
@@ -657,7 +663,7 @@ default_rfind(const character* s, Py_ssize_t n,
         }
         else {
             /* skip: check if previous character is part of pattern */
-            if (i > 0 && !STRINGLIB_BLOOM(mask, s[i-1])) {
+            if (i > 0 && !STRINGLIB_BLOOM(mask, READC(s, i-1, endofbuffer))) {
                 i = i - m;
             }
         }
@@ -688,7 +694,8 @@ template <typename character>
 inline Py_ssize_t
 fastsearch(const character* s, Py_ssize_t n,
            const character* p, Py_ssize_t m,
-           Py_ssize_t maxcount, int mode)
+           Py_ssize_t maxcount, int mode,
+           const character *endofbuffer)
 {
     if (n < m || (mode == FAST_COUNT && maxcount == 0)) {
         return -1;
@@ -711,7 +718,7 @@ fastsearch(const character* s, Py_ssize_t n,
 
     if (mode != FAST_RSEARCH) {
         if (n < 2500 || (m < 100 && n < 30000) || m < 6) {
-            return default_find<character>(s, n, p, m, maxcount, mode);
+            return default_find<character>(s, n, p, m, maxcount, mode, endofbuffer);
         }
         else if ((m >> 2) * 3 < (n >> 2)) {
             /* 33% threshold, but don't overflow. */
@@ -720,10 +727,10 @@ fastsearch(const character* s, Py_ssize_t n,
                expensive O(m) startup cost of the two-way algorithm
                will surely pay off. */
             if (mode == FAST_SEARCH) {
-                return _two_way_find<character>(s, n, p, m);
+                return _two_way_find<character>(s, n, p, m, endofbuffer);
             }
             else {
-                return _two_way_count<character>(s, n, p, m, maxcount);
+                return _two_way_count<character>(s, n, p, m, maxcount, endofbuffer);
             }
         }
         else {
@@ -732,12 +739,12 @@ fastsearch(const character* s, Py_ssize_t n,
                we match O(m) characters without any matches of the
                entire needle, then we predict that the startup cost of
                the two-way algorithm will probably be worth it. */
-            return adaptive_find<character>(s, n, p, m, maxcount, mode);
+            return adaptive_find<character>(s, n, p, m, maxcount, mode, endofbuffer);
         }
     }
     else {
         /* FAST_RSEARCH */
-        return default_rfind<character>(s, n, p, m, maxcount, mode);
+        return default_rfind<character>(s, n, p, m, maxcount, mode, endofbuffer);
     }
 }
 

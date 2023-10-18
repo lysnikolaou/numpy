@@ -69,7 +69,7 @@ template <typename character>
 static inline Py_ssize_t
 findslice(const character* str, Py_ssize_t str_len,
            const character* sub, Py_ssize_t sub_len,
-           Py_ssize_t offset)
+           Py_ssize_t offset, const character *endofbuffer)
 {
     Py_ssize_t pos;
 
@@ -77,7 +77,7 @@ findslice(const character* str, Py_ssize_t str_len,
         return offset;
     }
 
-    pos = fastsearch<character>(str, str_len, sub, sub_len, -1, FAST_SEARCH);
+    pos = fastsearch<character>(str, str_len, sub, sub_len, -1, FAST_SEARCH, endofbuffer);
 
     if (pos >= 0) {
         pos += offset;
@@ -90,7 +90,7 @@ template <typename character>
 static inline Py_ssize_t
 rfindslice(const character* str, Py_ssize_t str_len,
            const character* sub, Py_ssize_t sub_len,
-           Py_ssize_t offset)
+           Py_ssize_t offset, const character *endofbuffer)
 {
     Py_ssize_t pos;
 
@@ -98,7 +98,7 @@ rfindslice(const character* str, Py_ssize_t str_len,
         return str_len + offset;
     }
 
-    pos = fastsearch<character>(str, str_len, sub, sub_len, -1, FAST_RSEARCH);
+    pos = fastsearch<character>(str, str_len, sub, sub_len, -1, FAST_RSEARCH, endofbuffer);
 
     if (pos >= 0) {
         pos += offset;
@@ -241,7 +241,7 @@ string_find(character *str1, int elsize1, character *str2, int elsize2, npy_long
         }
     }
 
-    return findslice<character>(str1 + start, end - start, str2, len2, start);
+    return findslice<character>(str1 + start, end - start, str2, len2, start, str1+elsize1);
 }
 
 template <typename character>
@@ -269,7 +269,7 @@ string_rfind(character *str1, int elsize1, character *str2, int elsize2, npy_lon
         }
     }
 
-    return rfindslice<character>(str1 + start, end - start, str2, len2, start);
+    return rfindslice<character>(str1 + start, end - start, str2, len2, start, str1+elsize1);
 }
 
 
