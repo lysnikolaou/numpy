@@ -2282,6 +2282,10 @@ PyUFunc_DivmodTypeResolver(PyUFuncObject *ufunc,
     return 0;
 }
 
+/* 
+ * Type resolver for find/rfing ufuncs.
+ * Needed cause legacy-style promotion is enforced for this type of ufunc.
+ */
 NPY_NO_EXPORT int
 PyUFunc_FindTypeResolver(PyUFuncObject *ufunc,
                                 NPY_CASTING casting,
@@ -2297,17 +2301,23 @@ PyUFunc_FindTypeResolver(PyUFuncObject *ufunc,
     if (out_dtypes[1] == NULL) {
         return -1;
     }
-    out_dtypes[2] = NPY_DT_CALL_ensure_canonical(PyArray_DESCR(operands[2]));
+
+    PyArray_Descr *Long = PyArray_DescrFromType(NPY_LONG);
+    if (Long == NULL) {
+        return -1;
+    }
+
+    out_dtypes[2] = PyArray_PromoteTypes(PyArray_DESCR(operands[2]), Long);
     if (out_dtypes[2] == NULL) {
+        Py_DECREF(Long);
         return -1;
     }
-    out_dtypes[3] = NPY_DT_CALL_ensure_canonical(PyArray_DESCR(operands[3]));
+    out_dtypes[3] = PyArray_PromoteTypes(PyArray_DESCR(operands[3]), Long);
     if (out_dtypes[3] == NULL) {
+        Py_DECREF(Long);
         return -1;
     }
-    out_dtypes[4] = PyArray_DescrFromType(NPY_LONG);
-    if (out_dtypes[4] == NULL) {
-        return -1;
-    }
+
+    out_dtypes[4] = Long;  // An INCREF and a DECREF on Long cancel each other out
     return 0;
 }
