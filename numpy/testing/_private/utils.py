@@ -1199,9 +1199,7 @@ def assert_array_less(x, y, err_msg='', verbose=True, *, strict=False):
     AssertionError:
     Arrays are not less-ordered
     <BLANKLINE>
-    Mismatched elements: 1 / 2 (50%)
-    Max absolute difference among violations: 1.
-    Max relative difference among violations: 0.33333333
+    (shapes (2,), () mismatch)
      x: array([1., 4.])
      y: array(5.)
 
