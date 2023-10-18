@@ -1151,7 +1151,22 @@ defdict = {
     Ufunc(4, 1, AllOnes,
           docstrings.get('numpy.core.umath.rfind'),
           "PyUFunc_FindTypeResolver",
-          )
+          ),
+'count':
+    Ufunc(4, 1, Zero,
+          docstrings.get('numpy.core.umath.count'),
+          "PyUFunc_FindTypeResolver",
+          ),
+'__replace_impl':
+    Ufunc(4, 1, None,
+          docstrings.get('numpy.core.umath.__replace_impl'),
+          "PyUFunc_ReplaceTypeResolver",
+          ),
+'str_len':
+    Ufunc(1, 1, Zero,
+          docstrings.get('numpy.core.umath.str_len'),
+          None,
+          ),
 }
 
 def indent(st, spaces):

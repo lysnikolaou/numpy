@@ -292,10 +292,7 @@ def str_len(a):
     >>> np.char.str_len(a)
     array([[5, 5], [1, 1]])
     """
-    # Note: __len__, etc. currently return ints, which are not C-integers.
-    # Generally intp would be expected for lengths, although int is sufficient
-    # due to the dtype itemsize limitation.
-    return _vec_string(a, int_, '__len__')
+    return numpy._core.umath.str_len(a)
 
 
 @array_function_dispatch(_binary_op_dispatcher)
@@ -558,7 +555,8 @@ def count(a, sub, start=0, end=None):
     array([1, 0, 0])
 
     """
-    return _vec_string(a, int_, 'count', [sub, start] + _clean_args(end))
+    end = end or numpy.iinfo(numpy.int_).max
+    return numpy._core.umath.count(a, sub, start, end)
 
 
 def _code_dispatcher(a, encoding=None, errors=None):
@@ -1269,8 +1267,8 @@ def replace(a, old, new, count=None):
     >>> np.char.replace(a, 'is', 'was')
     array(['The dwash was fresh', 'Thwas was it'], dtype='<U19')
     """
-    return _to_bytes_or_str_array(
-        _vec_string(a, object_, 'replace', [old, new] + _clean_args(count)), a)
+    count = count or numpy.iinfo(numpy.int_).max
+    return numpy._core.umath.replace(a, old, new, count)
 
 
 @array_function_dispatch(_count_dispatcher)
@@ -2532,7 +2530,7 @@ class chararray(ndarray):
         char.replace
 
         """
-        return asarray(replace(self, old, new, count))
+        return replace(self, old, new, count)
 
     def rfind(self, sub, start=0, end=None):
         """
