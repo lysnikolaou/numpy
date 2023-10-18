@@ -2290,9 +2290,24 @@ PyUFunc_FindTypeResolver(PyUFuncObject *ufunc,
                                 PyArray_Descr **out_dtypes)
 {
     out_dtypes[0] = NPY_DT_CALL_ensure_canonical(PyArray_DESCR(operands[0]));
+    if (out_dtypes[0] == NULL) {
+        return -1;
+    }
     out_dtypes[1] = NPY_DT_CALL_ensure_canonical(PyArray_DESCR(operands[1]));
+    if (out_dtypes[1] == NULL) {
+        return -1;
+    }
     out_dtypes[2] = NPY_DT_CALL_ensure_canonical(PyArray_DESCR(operands[2]));
+    if (out_dtypes[2] == NULL) {
+        return -1;
+    }
     out_dtypes[3] = NPY_DT_CALL_ensure_canonical(PyArray_DESCR(operands[3]));
+    if (out_dtypes[3] == NULL) {
+        return -1;
+    }
     out_dtypes[4] = PyArray_DescrFromType(NPY_LONG);
+    if (out_dtypes[4] == NULL) {
+        return -1;
+    }
     return 0;
 }
