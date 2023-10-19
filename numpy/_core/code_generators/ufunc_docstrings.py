@@ -4283,6 +4283,7 @@ add_newdoc('numpy.core.umath', 'find',
     substring `x2` is found, such that `sub` is contained in the
     range [`x3`, `x4`].
 
+
     Parameters
     ----------
     x1 : array_like, with ``bytes_`` or ``unicode_`` dtype
@@ -4341,12 +4342,149 @@ add_newdoc('numpy.core.umath', 'rfind',
 
     See Also
     --------
-    str.find
+    str.rfind
 
     Examples
     --------
     >>> a = np.array(["NumPy is a Python library"])
-    >>> np.core.umath.find(a, "Python", 0, None)
+    >>> np.core.umath.rfind(a, "Python", 0, None)
     array([11])
+    """)
+
+add_newdoc('numpy._core.umath', 'strip',
+    """
+    For each element in `x1`, return a copy with the leading and
+    trailing characters removed.
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``unicode_`` dtype
+
+    x2 : scalar with ``bytes_`` or ``unicode_`` dtype, optional
+       The `x2` argument is a string specifying the set of
+       characters to be removed. If None, the `x2`
+       argument defaults to removing whitespace. The `x2` argument
+       is not a prefix or suffix; rather, all combinations of its
+       values are stripped.
+        $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of ``bytes_`` or ``unicode_`` dtype
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.strip
+
+    Examples
+    --------
+    >>> c = np.array(['aAaAaA', '  aA  ', 'abBABba'])
+    >>> c
+    array(['aAaAaA', '  aA  ', 'abBABba'], dtype='<U7')
+    >>> np._core.umath.strip(c)
+    array(['aAaAaA', 'aA', 'abBABba'], dtype='<U7')
+
+    'a' unstripped from c[1] because ws leads
+
+    >>> np._core.umath.strip(c, 'a')
+    array(['AaAaA', '  aA  ', 'bBABb'], dtype='<U7')
+
+    # 'A' unstripped from c[1] because ws trails
+
+    >>> np._core.umath.strip(c, 'A')
+    array(['aAaAa', '  aA  ', 'abBABba'], dtype='<U7')
+
+    """)
+
+add_newdoc('numpy._core.umath', 'lstrip',
+    """
+    For each element in `x1`, return a copy with the leading characters
+    removed.
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``unicode_`` dtype
+
+    x2 : scalar with ``bytes_`` or ``unicode_`` dtype, optional
+       The `x2` argument is a string specifying the set of
+       characters to be removed. If None, the `x2`
+       argument defaults to removing whitespace. The `x2` argument
+       is not a prefix or suffix; rather, all combinations of its
+       values are stripped.
+        $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of ``bytes_`` or ``unicode_`` dtype
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.lstrip
+
+    Examples
+    --------
+    >>> c = np.array(['aAaAaA', '  aA  ', 'abBABba'])
+    >>> c
+    array(['aAaAaA', '  aA  ', 'abBABba'], dtype='<U7')
+
+    The 'a' variable is unstripped from c[1] because whitespace leading.
+
+    >>> np._core.umath.lstrip(c, 'a')
+    array(['AaAaA', '  aA  ', 'bBABba'], dtype='<U7')
+
+
+    >>> np._core.umath.lstrip(c, 'A') # leaves c unchanged
+    array(['aAaAaA', '  aA  ', 'abBABba'], dtype='<U7')
+    >>> (np._core.umath.lstrip(c, ' ') == np._core.umath.lstrip(c, '')).all()
+    ... # XXX: is this a regression? This used to return True
+    ... # np._core.umath.lstrip(c,'') does not modify c at all.
+    False
+    >>> (np._core.umath.lstrip(c, ' ') == np._core.umath.lstrip(c, None)).all()
+    True
+
+    """)
+
+add_newdoc('numpy._core.umath', 'rstrip',
+    """
+    For each element in `x1`, return a copy with the trailing characters
+    removed.
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``unicode_`` dtype
+
+    x2 : scalar with ``bytes_`` or ``unicode_`` dtype, optional
+       The `x2` argument is a string specifying the set of
+       characters to be removed. If None, the `x2`
+       argument defaults to removing whitespace. The `x2` argument
+       is not a prefix or suffix; rather, all combinations of its
+       values are stripped.
+        $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of ``bytes_`` or ``unicode_`` dtype
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.rstrip
+
+    Examples
+    --------
+    >>> c = np.array(['aAaAaA', 'abBABba'], dtype='S7'); c
+    array(['aAaAaA', 'abBABba'],
+        dtype='|S7')
+    >>> np.char.rstrip(c, b'a')
+    array(['aAaAaA', 'abBABb'],
+        dtype='|S7')
+    >>> np.char.rstrip(c, b'A')
+    array(['aAaAa', 'abBABba'],
+        dtype='|S7')
 
     """)

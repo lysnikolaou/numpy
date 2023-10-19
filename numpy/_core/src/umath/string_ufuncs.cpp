@@ -18,6 +18,10 @@
 #include "string_ufuncs.h"
 #include "string_fastsearch.h"
 
+#define LEFTSTRIP 0
+#define RIGHTSTRIP 1
+#define BOTHSTRIP 2
+
 
 template <typename character>
 static inline int
@@ -272,6 +276,133 @@ string_rfind(character *str1, int elsize1, character *str2, int elsize2, npy_lon
     return rfindslice<character>(str1 + start, end - start, str2, len2, start, str1+elsize1);
 }
 
+template <typename character>
+static inline void
+string_lrstrip_without_chars(const character *str, int elsize, character *out, int outsize, int striptype)
+{
+    int len = get_length(str, elsize);
+    if (len == 0) {
+        memset(out, 0, outsize * sizeof(character));
+        return;
+    }
+
+    int i = 0;
+    if (striptype != RIGHTSTRIP) {
+        while (i < len) {
+            if (!Py_UNICODE_ISSPACE(str[i])) {
+                break;
+            }
+            i++;
+        }
+    }
+
+    int j = len - 1;
+    if (striptype != LEFTSTRIP) {
+        while (j >= i) {
+            if (!Py_UNICODE_ISSPACE(str[j])) {
+                break;
+            }
+            j--;
+        }
+    }
+
+    memcpy(out, str + i, (j - i + 1) * sizeof(character));
+    memset(out + (j - i + 1), 0, (outsize - (j - i + 1)) * sizeof(character));
+}
+
+
+template <typename character>
+static inline void
+string_lrstrip_with_chars(const character *str1, int elsize1, const character *str2, int elsize2,
+                          character *out, int outsize, int striptype)
+{
+    int len1 = get_length(str1, elsize1);
+    if (len1 == 0) {
+        memset(out, 0, outsize * sizeof(character));
+        return;
+    }
+
+    int len2 = get_length(str2, elsize2);
+    if (len2 == 0) {
+        memcpy(out, str1, elsize1 * sizeof(character));
+        return;
+    }
+
+    int i = 0;
+    if (striptype != RIGHTSTRIP) {
+        while (i < len1) {
+            if (findchar(str2, len2, str1[i]) < 0) {
+                break;
+            }
+            i++;
+        }
+    }
+
+    int j = len1 - 1;
+    if (striptype != LEFTSTRIP) {
+        while (j >= i) {
+            if (findchar(str2, len2, str1[j]) < 0) {
+                break;
+            }
+            j--;
+        }
+    }
+
+    memcpy(out, str1 + i, (j - i + 1) * sizeof(character));
+    memset(out + (j - i + 1), 0, (outsize - (j - i + 1)) * sizeof(character));
+}
+
+
+template <typename character>
+static inline void
+string_strip_without_chars(const character *str, int elsize, character *out, int outsize)
+{
+    string_lrstrip_without_chars(str, elsize, out, outsize, BOTHSTRIP);
+}
+
+
+template <typename character>
+static inline void
+string_lstrip_without_chars(const character *str, int elsize, character *out, int outsize)
+{
+    string_lrstrip_without_chars(str, elsize, out, outsize, LEFTSTRIP);
+}
+
+
+template <typename character>
+static inline void
+string_rstrip_without_chars(const character *str, int elsize, character *out, int outsize)
+{
+    string_lrstrip_without_chars(str, elsize, out, outsize, RIGHTSTRIP);
+}
+
+
+template <typename character>
+static inline void
+string_strip_with_chars(const character *str1, int elsize1, const character *str2, int elsize2,
+                           character *out, int outsize)
+{
+    string_lrstrip_with_chars(str1, elsize1, str2, elsize2, out, outsize, BOTHSTRIP);
+}
+
+
+template <typename character>
+static inline void
+string_lstrip_with_chars(const character *str1, int elsize1, const character *str2, int elsize2,
+                           character *out, int outsize)
+{
+    string_lrstrip_with_chars(str1, elsize1, str2, elsize2, out, outsize, LEFTSTRIP);
+}
+
+
+template <typename character>
+static inline void
+string_rstrip_with_chars(const character *str1, int elsize1, const character *str2, int elsize2,
+                           character *out, int outsize)
+{
+    string_lrstrip_with_chars(str1, elsize1, str2, elsize2, out, outsize, RIGHTSTRIP);
+}
+
 
 /*
  * Helper for templating, avoids warnings about uncovered switch paths.
@@ -440,6 +571,7 @@ string_find_loop(PyArrayMethod_Context *context,
     return 0;
 }
 
+
 template<typename character>
 static int
 string_rfind_loop(PyArrayMethod_Context *context,
@@ -470,6 +602,172 @@ string_rfind_loop(PyArrayMethod_Context *context,
     }
     return 0;
 }
+
+
+template <typename character>
+static int
+string_strip_without_chars_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    int elsize = context->descriptors[0]->elsize / sizeof(character);
+    // Element at index 1 is None for the characters to strip
+    int outsize = context->descriptors[2]->elsize / sizeof(character);
+
+    char *in = data[0];
+    char *out = data[2];
+
+    npy_intp N = dimensions[0];
+
+    while (N--) {
+        string_strip_without_chars((character *) in, elsize, (character *) out, outsize);
+
+        in += strides[0];
+        out += strides[2];
+    }
+
+    return 0;
+}
+
+
+template <typename character>
+static int
+string_lstrip_without_chars_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    int elsize = context->descriptors[0]->elsize / sizeof(character);
+    // Element at index 1 is None for the characters to strip
+    int outsize = context->descriptors[2]->elsize / sizeof(character);
+
+    char *in = data[0];
+    char *out = data[2];
+
+    npy_intp N = dimensions[0];
+
+    while (N--) {
+        string_lstrip_without_chars((character *) in, elsize, (character *) out, outsize);
+
+        in += strides[0];
+        out += strides[2];
+    }
+
+    return 0;
+}
+
+
+template <typename character>
+static int
+string_rstrip_without_chars_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    int elsize = context->descriptors[0]->elsize / sizeof(character);
+    // Element at index 1 is None for the characters to strip
+    int outsize = context->descriptors[2]->elsize / sizeof(character);
+
+    char *in = data[0];
+    char *out = data[2];
+
+    npy_intp N = dimensions[0];
+
+    while (N--) {
+        string_rstrip_without_chars((character *) in, elsize, (character *) out, outsize);
+
+        in += strides[0];
+        out += strides[2];
+    }
+
+    return 0;
+}
+
+
+template <typename character>
+static int
+string_strip_with_chars_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    int elsize1 = context->descriptors[0]->elsize / sizeof(character);
+    int elsize2 = context->descriptors[1]->elsize / sizeof(character);
+    int outsize = context->descriptors[2]->elsize / sizeof(character);
+
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *out = data[2];
+
+    npy_intp N = dimensions[0];
+
+    while (N--) {
+        string_strip_with_chars((character *) in1, elsize1, (character *) in2, elsize2,
+                                     (character *) out, outsize);
+
+        in1 += strides[0];
+        in2 += strides[1];
+        out += strides[2];
+    }
+
+    return 0;
+}
+
+
+template <typename character>
+static int
+string_lstrip_with_chars_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    int elsize1 = context->descriptors[0]->elsize / sizeof(character);
+    int elsize2 = context->descriptors[1]->elsize / sizeof(character);
+    int outsize = context->descriptors[2]->elsize / sizeof(character);
+
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *out = data[2];
+
+    npy_intp N = dimensions[0];
+
+    while (N--) {
+        string_lstrip_with_chars((character *) in1, elsize1, (character *) in2, elsize2,
+                                     (character *) out, outsize);
+
+        in1 += strides[0];
+        in2 += strides[1];
+        out += strides[2];
+    }
+
+    return 0;
+}
+
+
+template <typename character>
+static int
+string_rstrip_with_chars_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    int elsize1 = context->descriptors[0]->elsize / sizeof(character);
+    int elsize2 = context->descriptors[1]->elsize / sizeof(character);
+    int outsize = context->descriptors[2]->elsize / sizeof(character);
+
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *out = data[2];
+
+    npy_intp N = dimensions[0];
+
+    while (N--) {
+        string_rstrip_with_chars((character *) in1, elsize1, (character *) in2, elsize2,
+                                     (character *) out, outsize);
+
+        in1 += strides[0];
+        in2 += strides[1];
+        out += strides[2];
+    }
+
+    return 0;
+}
+
 
 /*
  * Machinery to add the string loops to the existing ufuncs.
@@ -799,6 +1097,213 @@ init_rfind(PyObject *umath)
 }
 
 
+static NPY_CASTING
+string_lrstrip_resolve_descriptors(
+        PyArrayMethodObject *NPY_UNUSED(self),
+        PyArray_DTypeMeta *NPY_UNUSED(dtypes[3]),
+        PyArray_Descr *given_descrs[3],
+        PyArray_Descr *loop_descrs[3],
+        npy_intp *NPY_UNUSED(view_offset))
+{
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+    Py_INCREF(given_descrs[1]);
+    loop_descrs[1] = given_descrs[1];
+    if (given_descrs[2] != NULL) {
+        Py_INCREF(given_descrs[2]);
+        loop_descrs[2] = given_descrs[2];
+    } else {
+        Py_INCREF(loop_descrs[0]);
+        loop_descrs[2] = loop_descrs[0];
+    }
+
+    return NPY_NO_CASTING;
+}
+
+
+static int
+init_strip(PyObject *umath)
+{
+    int res = -1;
+    /* NOTE: This should receive global symbols? */
+    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
+    PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
+    PyArray_DTypeMeta *Object = PyArray_DTypeFromTypeNum(NPY_OBJECT);
+
+    /* We start with the string loops: */
+    PyArray_DTypeMeta *dtypes[] = {String, Object, String};
+    /*
+     * We only have one loop right now, the strided one.  The default type
+     * resolver ensures native byte order/canonical representation.
+     */
+    PyType_Slot slots[] = {
+        {NPY_METH_strided_loop, nullptr},
+        {NPY_METH_resolve_descriptors, (void *) string_lrstrip_resolve_descriptors},
+        {0, nullptr}
+    };
+
+    PyArrayMethod_Spec spec = {};
+    spec.name = "templated_string_strip";
+    spec.nin = 2;
+    spec.nout = 1;
+    spec.dtypes = dtypes;
+    spec.slots = slots;
+    spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
+
+    /* All String loops */
+    if (add_loop(umath, "strip", &spec, string_strip_without_chars_loop<npy_byte>) < 0) {
+        goto finish;
+    }
+
+    dtypes[1] = String;
+    if (add_loop(umath, "strip", &spec, string_strip_with_chars_loop<npy_byte>) < 0) {
+        goto finish;
+    }
+
+    /* All Unicode loops */
+    dtypes[0] = Unicode;
+    dtypes[1] = Object;
+    dtypes[2] = Unicode;
+    if (add_loop(umath, "strip", &spec, string_strip_without_chars_loop<npy_ucs4>) < 0) {
+        goto finish;
+    }
+
+    dtypes[1] = Unicode;
+    if (add_loop(umath, "strip", &spec, string_strip_with_chars_loop<npy_ucs4>) < 0) {
+        goto finish;
+    }
+
+    res = 0;
+  finish:
+    Py_DECREF(String);
+    Py_DECREF(Unicode);
+    Py_DECREF(Object);
+    return res;
+}
+
+
+static int
+init_lstrip(PyObject *umath)
+{
+    int res = -1;
+    /* NOTE: This should receive global symbols? */
+    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
+    PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
+    PyArray_DTypeMeta *Object = PyArray_DTypeFromTypeNum(NPY_OBJECT);
+
+    /* We start with the string loops: */
+    PyArray_DTypeMeta *dtypes[] = {String, Object, String};
+    /*
+     * We only have one loop right now, the strided one.  The default type
+     * resolver ensures native byte order/canonical representation.
+     */
+    PyType_Slot slots[] = {
+        {NPY_METH_strided_loop, nullptr},
+        {NPY_METH_resolve_descriptors, (void *) string_lrstrip_resolve_descriptors},
+        {0, nullptr}
+    };
+
+    PyArrayMethod_Spec spec = {};
+    spec.name = "templated_string_lstrip";
+    spec.nin = 2;
+    spec.nout = 1;
+    spec.dtypes = dtypes;
+    spec.slots = slots;
+    spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
+
+    //* All String loops */
+    if (add_loop(umath, "lstrip", &spec, string_lstrip_without_chars_loop<npy_byte>) < 0) {
+        goto finish;
+    }
+
+    dtypes[1] = String;
+    if (add_loop(umath, "lstrip", &spec, string_lstrip_with_chars_loop<npy_byte>) < 0) {
+        goto finish;
+    }
+
+    /* All Unicode loops */
+    dtypes[0] = Unicode;
+    dtypes[1] = Object;
+    dtypes[2] = Unicode;
+    if (add_loop(umath, "lstrip", &spec, string_lstrip_without_chars_loop<npy_ucs4>) < 0) {
+        goto finish;
+    }
+
+    dtypes[1] = Unicode;
+    if (add_loop(umath, "lstrip", &spec, string_lstrip_with_chars_loop<npy_ucs4>) < 0) {
+        goto finish;
+    }
+
+    res = 0;
+  finish:
+    Py_DECREF(String);
+    Py_DECREF(Unicode);
+    Py_DECREF(Object);
+    return res;
+}
+
+
+static int
+init_rstrip(PyObject *umath)
+{
+    int res = -1;
+    /* NOTE: This should receive global symbols? */
+    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
+    PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
+    PyArray_DTypeMeta *Object = PyArray_DTypeFromTypeNum(NPY_OBJECT);
+
+    /* We start with the string loops: */
+    PyArray_DTypeMeta *dtypes[] = {String, Object, String};
+    /*
+     * We only have one loop right now, the strided one.  The default type
+     * resolver ensures native byte order/canonical representation.
+     */
+    PyType_Slot slots[] = {
+        {NPY_METH_strided_loop, nullptr},
+        {NPY_METH_resolve_descriptors, (void *) string_lrstrip_resolve_descriptors},
+        {0, nullptr}
+    };
+
+    PyArrayMethod_Spec spec = {};
+    spec.name = "templated_string_rstrip";
+    spec.nin = 2;
+    spec.nout = 1;
+    spec.dtypes = dtypes;
+    spec.slots = slots;
+    spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
+
+    /* All String loops */
+    if (add_loop(umath, "rstrip", &spec, string_rstrip_without_chars_loop<npy_byte>) < 0) {
+        goto finish;
+    }
+
+    dtypes[1] = String;
+    if (add_loop(umath, "rstrip", &spec, string_rstrip_with_chars_loop<npy_byte>) < 0) {
+        goto finish;
+    }
+
+    /* All Unicode loops */
+    dtypes[0] = Unicode;
+    dtypes[1] = Object;
+    dtypes[2] = Unicode;
+    if (add_loop(umath, "rstrip", &spec, string_rstrip_without_chars_loop<npy_ucs4>) < 0) {
+        goto finish;
+    }
+
+    dtypes[1] = Unicode;
+    if (add_loop(umath, "rstrip", &spec, string_rstrip_with_chars_loop<npy_ucs4>) < 0) {
+        goto finish;
+    }
+
+    res = 0;
+  finish:
+    Py_DECREF(String);
+    Py_DECREF(Unicode);
+    Py_DECREF(Object);
+    return res;
+}
+
+
 NPY_NO_EXPORT int
 init_string_ufuncs(PyObject *umath)
 {
@@ -819,6 +1324,18 @@ init_string_ufuncs(PyObject *umath)
     }
 
     if (init_rfind(umath) < 0) {
+        return -1;
+    }
+
+    if (init_strip(umath) < 0) {
+        return -1;
+    }
+
+    if (init_lstrip(umath) < 0) {
+        return -1;
+    }
+
+    if (init_rstrip(umath) < 0) {
         return -1;
     }
 

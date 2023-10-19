@@ -1184,8 +1184,7 @@ def lstrip(a, chars=None):
     True
 
     """
-    a_arr = numpy.asarray(a)
-    return _vec_string(a_arr, a_arr.dtype, 'lstrip', (chars,))
+    return numpy._core.umath.lstrip(a, chars)
 
 
 def _partition_dispatcher(a, sep):
@@ -1495,8 +1494,7 @@ def rstrip(a, chars=None):
         dtype='|S7')
 
     """
-    a_arr = numpy.asarray(a)
-    return _vec_string(a_arr, a_arr.dtype, 'rstrip', (chars,))
+    return numpy._core.umath.rstrip(a, chars)
 
 
 @array_function_dispatch(_split_dispatcher)
@@ -1645,8 +1643,7 @@ def strip(a, chars=None):
     array(['aAaAa', '  aA  ', 'abBABba'], dtype='<U7')
 
     """
-    a_arr = numpy.asarray(a)
-    return _vec_string(a_arr, a_arr.dtype, 'strip', _clean_args(chars))
+    return numpy._core.umath.strip(a, chars)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -2510,7 +2507,7 @@ class chararray(ndarray):
         char.lstrip
 
         """
-        return asarray(lstrip(self, chars))
+        return lstrip(self, chars)
 
     def partition(self, sep):
         """
@@ -2603,7 +2600,7 @@ class chararray(ndarray):
         char.rstrip
 
         """
-        return asarray(rstrip(self, chars))
+        return rstrip(self, chars)
 
     def split(self, sep=None, maxsplit=None):
         """
@@ -2651,7 +2648,7 @@ class chararray(ndarray):
         char.strip
 
         """
-        return asarray(strip(self, chars))
+        return strip(self, chars)
 
     def swapcase(self):
         """
