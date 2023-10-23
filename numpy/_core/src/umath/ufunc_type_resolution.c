@@ -2301,23 +2301,31 @@ PyUFunc_FindTypeResolver(PyUFuncObject *ufunc,
     if (out_dtypes[1] == NULL) {
         return -1;
     }
+    
 
-    PyArray_Descr *Long = PyArray_DescrFromType(NPY_LONG);
-    if (Long == NULL) {
+    PyArray_Descr *Int64 = PyArray_DescrFromType(NPY_INT64);
+    if (Int64 == NULL) {
         return -1;
     }
 
-    out_dtypes[2] = PyArray_PromoteTypes(PyArray_DESCR(operands[2]), Long);
-    if (out_dtypes[2] == NULL) {
-        Py_DECREF(Long);
-        return -1;
-    }
-    out_dtypes[3] = PyArray_PromoteTypes(PyArray_DESCR(operands[3]), Long);
-    if (out_dtypes[3] == NULL) {
-        Py_DECREF(Long);
+    Py_INCREF(Int64);
+    out_dtypes[2] = Int64;
+
+    Py_INCREF(Int64);
+    out_dtypes[3] = Int64;
+
+    Py_INCREF(Int64);
+    out_dtypes[4] = Int64;
+
+    if (PyUFunc_ValidateCasting(ufunc, casting, operands, out_dtypes) < 0) {
+        for (int i = 0; i < 4; ++i) {
+            Py_DECREF(out_dtypes[i]);
+            out_dtypes[i] = NULL;
+        }
+        Py_DECREF(Int64);
         return -1;
     }
 
-    out_dtypes[4] = Long;  // An INCREF and a DECREF on Long cancel each other out
+    Py_DECREF(Int64);
     return 0;
 }

@@ -2900,6 +2900,12 @@ def test_find_non_long_args(dtype):
     assert result == 0
 
 
+def test_find_access_past_buffer():
+    arr = np.array(['abc', 'def'])
+    result = np._core.umath.find(arr, 'cd', 0, 3)
+    assert np.all(result == -1)
+
+
 class TestLowlevelAPIAccess:
     def test_resolve_dtypes_basic(self):
         # Basic test for dtype resolution:

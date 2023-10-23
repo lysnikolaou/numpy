@@ -217,23 +217,23 @@ string_isalpha(const character *str, int elsize)
     }
 
 template <typename character>
-static inline npy_long
-string_find(character *str1, int elsize1, character *str2, int elsize2, npy_long start, npy_long end)
+static inline npy_int64
+string_find(character *str1, int elsize1, character *str2, int elsize2, npy_int64 start, npy_int64 end)
 {
     int len1, len2;
-    npy_long result;
+    npy_int64 result;
 
     len1 = get_length<character>(str1, elsize1);
     len2 = get_length<character>(str2, elsize2);
 
     ADJUST_INDICES(start, end, len1);
     if (end - start < len2) {
-        return (npy_long) -1;
+        return (npy_int64) -1;
     }
 
     if (len2 == 1) {
         character ch = *str2;
-        result = findchar<character>(str1 + start, end - start, ch);
+        result = (npy_int64) findchar<character>(str1 + start, end - start, ch);
         if (result == -1) {
             return -1;
         } else {
@@ -241,27 +241,32 @@ string_find(character *str1, int elsize1, character *str2, int elsize2, npy_long
         }
     }
 
-    return findslice<character>(str1 + start, end - start, str2, len2, start, str1+elsize1);
+    return (npy_int64) findslice<character>(str1 + start,
+                                            end - start,
+                                            str2,
+                                            len2,
+                                            start,
+                                            str1+elsize1);
 }
 
 template <typename character>
-static inline npy_long
-string_rfind(character *str1, int elsize1, character *str2, int elsize2, npy_long start, npy_long end)
+static inline npy_int64
+string_rfind(character *str1, int elsize1, character *str2, int elsize2, npy_int64 start, npy_int64 end)
 {
     int len1, len2;
-    npy_long result;
+    npy_int64 result;
 
     len1 = get_length<character>(str1, elsize1);
     len2 = get_length<character>(str2, elsize2);
 
     ADJUST_INDICES(start, end, len1);
     if (end - start < len2) {
-        return (npy_long) -1;
+        return (npy_int64) -1;
     }
 
     if (len2 == 1) {
         character ch = *str2;
-        result = rfindchar<character>(str1 + start, end - start, ch);
+        result = (npy_int64) rfindchar<character>(str1 + start, end - start, ch);
         if (result == -1) {
             return -1;
         } else {
@@ -269,7 +274,12 @@ string_rfind(character *str1, int elsize1, character *str2, int elsize2, npy_lon
         }
     }
 
-    return rfindslice<character>(str1 + start, end - start, str2, len2, start, str1+elsize1);
+    return (npy_int64) rfindslice<character>(str1 + start,
+                                             end - start,
+                                             str2,
+                                             len2,
+                                             start,
+                                             str1+elsize1);
 }
 
 
@@ -427,9 +437,9 @@ string_find_loop(PyArrayMethod_Context *context,
     npy_intp N = dimensions[0];
 
     while (N--) {
-        npy_long idx = string_find<character>((character *) in1, elsize1, (character *) in2, elsize2,
-                                              *(npy_long *)in3, *(npy_long *)in4);
-        *(npy_long *)out = idx;
+        npy_int64 idx = string_find<character>((character *) in1, elsize1, (character *) in2, elsize2,
+                                              *(npy_int64 *)in3, *(npy_int64 *)in4);
+        *(npy_int64 *)out = idx;
 
         in1 += strides[0];
         in2 += strides[1];
@@ -458,9 +468,9 @@ string_rfind_loop(PyArrayMethod_Context *context,
     npy_intp N = dimensions[0];
 
     while (N--) {
-        npy_long idx = string_rfind<character>((character *) in1, elsize1, (character *) in2, elsize2,
-                                              *(npy_long *)in3, *(npy_long *)in4);
-        *(npy_long *)out = idx;
+        npy_int64 idx = string_rfind<character>((character *) in1, elsize1, (character *) in2, elsize2,
+                                              *(npy_int64 *)in3, *(npy_int64 *)in4);
+        *(npy_int64 *)out = idx;
 
         in1 += strides[0];
         in2 += strides[1];
@@ -708,10 +718,10 @@ init_find(PyObject *umath)
     /* NOTE: This should receive global symbols? */
     PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
     PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
-    PyArray_DTypeMeta *Long = PyArray_DTypeFromTypeNum(NPY_LONG);
+    PyArray_DTypeMeta *Int64 = PyArray_DTypeFromTypeNum(NPY_INT64);
 
     /* We start with the string loops: */
-    PyArray_DTypeMeta *dtypes[] = {String, String, Long, Long, Long};
+    PyArray_DTypeMeta *dtypes[] = {String, String, Int64, Int64, Int64};
     /*
      * We only have one loop right now, the strided one.  The default type
      * resolver ensures native byte order/canonical representation.
@@ -745,7 +755,7 @@ init_find(PyObject *umath)
   finish:
     Py_DECREF(String);
     Py_DECREF(Unicode);
-    Py_DECREF(Long);
+    Py_DECREF(Int64);
     return res;
 }
 
@@ -757,10 +767,10 @@ init_rfind(PyObject *umath)
     /* NOTE: This should receive global symbols? */
     PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
     PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
-    PyArray_DTypeMeta *Long = PyArray_DTypeFromTypeNum(NPY_LONG);
+    PyArray_DTypeMeta *Int64 = PyArray_DTypeFromTypeNum(NPY_INT64);
 
     /* We start with the string loops: */
-    PyArray_DTypeMeta *dtypes[] = {String, String, Long, Long, Long};
+    PyArray_DTypeMeta *dtypes[] = {String, String, Int64, Int64, Int64};
     /*
      * We only have one loop right now, the strided one.  The default type
      * resolver ensures native byte order/canonical representation.
@@ -794,7 +804,7 @@ init_rfind(PyObject *umath)
   finish:
     Py_DECREF(String);
     Py_DECREF(Unicode);
-    Py_DECREF(Long);
+    Py_DECREF(Int64);
     return res;
 }
 
