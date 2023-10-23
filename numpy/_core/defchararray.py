@@ -773,7 +773,7 @@ def find(a, sub, start=0, end=None):
     array([11])
 
     """
-    end = end or numpy.iinfo(numpy.int_).max
+    end = end if end is not None else numpy.iinfo(numpy.int64).max
     return numpy._core.umath.find(a, sub, start, end)
 
 @array_function_dispatch(_count_dispatcher)
@@ -1302,7 +1302,7 @@ def rfind(a, sub, start=0, end=None):
     str.rfind
 
     """
-    end = end or numpy.iinfo(numpy.int_).max
+    end = end if end is not None else numpy.iinfo(numpy.int64).max
     return numpy._core.umath.rfind(a, sub, start, end)
 
 
