@@ -481,6 +481,37 @@ string_rfind_loop(PyArrayMethod_Context *context,
     return 0;
 }
 
+
+/* Resolve descriptor functions */
+
+static NPY_CASTING
+string_addition_resolve_descriptors(
+        PyArrayMethodObject *NPY_UNUSED(self),
+        PyArray_DTypeMeta *NPY_UNUSED(dtypes[3]),
+        PyArray_Descr *given_descrs[3],
+        PyArray_Descr *loop_descrs[3],
+        npy_intp *NPY_UNUSED(view_offset))
+{
+    loop_descrs[0] = NPY_DT_CALL_ensure_canonical(given_descrs[0]);
+    if (loop_descrs[0] == NULL) {
+        return _NPY_ERROR_OCCURRED_IN_CAST;
+    }
+
+    loop_descrs[1] = NPY_DT_CALL_ensure_canonical(given_descrs[1]);
+    if (loop_descrs[1] == NULL) {
+        return _NPY_ERROR_OCCURRED_IN_CAST;
+    }
+
+    loop_descrs[2] = PyArray_DescrNew(loop_descrs[0]);
+    if (loop_descrs[2] == NULL) {
+        return _NPY_ERROR_OCCURRED_IN_CAST;
+    }
+    loop_descrs[2]->elsize += loop_descrs[1]->elsize;
+
+    return NPY_NO_CASTING;
+}
+
+
 /*
  * Machinery to add the string loops to the existing ufuncs.
  */
@@ -586,225 +617,50 @@ init_comparison(PyObject *umath)
 }
 
 
-static NPY_CASTING
-string_addition_resolve_descriptors(
-        PyArrayMethodObject *NPY_UNUSED(self),
-        PyArray_DTypeMeta *NPY_UNUSED(dtypes[3]),
-        PyArray_Descr *given_descrs[3],
-        PyArray_Descr *loop_descrs[3],
-        npy_intp *NPY_UNUSED(view_offset))
-{
-    loop_descrs[0] = NPY_DT_CALL_ensure_canonical(given_descrs[0]);
-    if (loop_descrs[0] == NULL) {
-        return _NPY_ERROR_OCCURRED_IN_CAST;
-    }
-
-    loop_descrs[1] = NPY_DT_CALL_ensure_canonical(given_descrs[1]);
-    if (loop_descrs[1] == NULL) {
-        return _NPY_ERROR_OCCURRED_IN_CAST;
-    }
-
-    loop_descrs[2] = PyArray_DescrNew(loop_descrs[0]);
-    if (loop_descrs[2] == NULL) {
-        return _NPY_ERROR_OCCURRED_IN_CAST;
-    }
-    loop_descrs[2]->elsize += loop_descrs[1]->elsize;
-
-    return NPY_NO_CASTING;
-}
-
-
 static int
-init_add(PyObject *umath)
+init_ufunc(PyObject *umath, const char *name, const char *specname, int nin, int nout,
+           PyArray_DTypeMeta **dtypes, PyArrayMethod_StridedLoop *stringmethod,
+           PyArrayMethod_StridedLoop *unicodemethod,
+           resolve_descriptors_function *resolve_descriptors)
 {
     int res = -1;
-
-    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
     PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
 
-    /* We start with the string loops: */
-    PyArray_DTypeMeta *dtypes[] = {String, String, String};
-    /*
-     * We only have one loop right now, the strided one.  The default type
-     * resolver ensures native byte order/canonical representation.
-     */
-    PyType_Slot slots[] = {
-        {NPY_METH_strided_loop, nullptr},
-        {NPY_METH_resolve_descriptors, (void *) &string_addition_resolve_descriptors},
-        {0, nullptr}
-    };
+    PyType_Slot slots[3];
+    slots[0] = {NPY_METH_strided_loop, nullptr};
+    slots[2] = {0, nullptr};
+    if (resolve_descriptors != NULL) {
+        slots[1] = {NPY_METH_resolve_descriptors, (void *) resolve_descriptors};
+    } else {
+        slots[1] = {0, nullptr};
+    }
 
     PyArrayMethod_Spec spec = {};
-    spec.name = "templated_add";
-    spec.nin = 2;
-    spec.nout = 1;
+    spec.name = specname;
+    spec.nin = nin;
+    spec.nout = nout;
     spec.dtypes = dtypes;
     spec.slots = slots;
     spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
 
     /* All String loops */
-    if (add_loop(umath, "add", &spec, string_add_loop<npy_byte>) < 0) {
+    if (add_loop(umath, name, &spec, stringmethod) < 0) {
         goto finish;
     }
 
     /* All Unicode loops */
-    dtypes[0] = Unicode;
-    dtypes[1] = Unicode;
-    dtypes[2] = Unicode;
-    if (add_loop(umath, "add", &spec, string_add_loop<npy_ucs4>) < 0) {
+    for (int i = 0; i < nin+nout; i++) {
+        if (spec.dtypes[i]->singleton->type_num == NPY_STRING) {
+            spec.dtypes[i] = Unicode;
+        }
+    }
+    if (add_loop(umath, name, &spec, unicodemethod) < 0) {
         goto finish;
     }
 
     res = 0;
   finish:
-    Py_DECREF(String);
     Py_DECREF(Unicode);
-    return res;
-}
-
-
-static int
-init_isalpha(PyObject *umath)
-{
-    int res = -1;
-    /* NOTE: This should receive global symbols? */
-    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
-    PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
-    PyArray_DTypeMeta *Bool = PyArray_DTypeFromTypeNum(NPY_BOOL);
-
-    /* We start with the string loops: */
-    PyArray_DTypeMeta *dtypes[] = {String, Bool};
-    /*
-     * We only have one loop right now, the strided one.  The default type
-     * resolver ensures native byte order/canonical representation.
-     */
-    PyType_Slot slots[] = {
-        {NPY_METH_strided_loop, nullptr},
-        {0, nullptr}
-    };
-
-    PyArrayMethod_Spec spec = {};
-    spec.name = "templated_string_isalpha";
-    spec.nin = 1;
-    spec.nout = 1;
-    spec.dtypes = dtypes;
-    spec.slots = slots;
-    spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
-
-    /* All String loops */
-    if (add_loop(umath, "isalpha", &spec, string_isalpha_loop<npy_byte>) < 0) {
-        goto finish;
-    }
-
-    /* All Unicode loops */
-    dtypes[0] = Unicode;
-    if (add_loop(umath, "isalpha", &spec, string_isalpha_loop<npy_ucs4>) < 0) {
-        goto finish;
-    }
-
-    res = 0;
-  finish:
-    Py_DECREF(String);
-    Py_DECREF(Unicode);
-    Py_DECREF(Bool);
-    return res;
-}
-
-
-static int
-init_find(PyObject *umath)
-{
-    int res = -1;
-    /* NOTE: This should receive global symbols? */
-    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
-    PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
-    PyArray_DTypeMeta *Int64 = PyArray_DTypeFromTypeNum(NPY_INT64);
-
-    /* We start with the string loops: */
-    PyArray_DTypeMeta *dtypes[] = {String, String, Int64, Int64, Int64};
-    /*
-     * We only have one loop right now, the strided one.  The default type
-     * resolver ensures native byte order/canonical representation.
-     */
-    PyType_Slot slots[] = {
-        {NPY_METH_strided_loop, nullptr},
-        {0, nullptr}
-    };
-
-    PyArrayMethod_Spec spec = {};
-    spec.name = "templated_string_find";
-    spec.nin = 4;
-    spec.nout = 1;
-    spec.dtypes = dtypes;
-    spec.slots = slots;
-    spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
-
-    /* All String loops */
-    if (add_loop(umath, "find", &spec, string_find_loop<npy_byte>) < 0) {
-        goto finish;
-    }
-
-    /* All Unicode loops */
-    dtypes[0] = Unicode;
-    dtypes[1] = Unicode;
-    if (add_loop(umath, "find", &spec, string_find_loop<npy_ucs4>) < 0) {
-        goto finish;
-    }
-
-    res = 0;
-  finish:
-    Py_DECREF(String);
-    Py_DECREF(Unicode);
-    Py_DECREF(Int64);
-    return res;
-}
-
-
-static int
-init_rfind(PyObject *umath)
-{
-    int res = -1;
-    /* NOTE: This should receive global symbols? */
-    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
-    PyArray_DTypeMeta *Unicode = PyArray_DTypeFromTypeNum(NPY_UNICODE);
-    PyArray_DTypeMeta *Int64 = PyArray_DTypeFromTypeNum(NPY_INT64);
-
-    /* We start with the string loops: */
-    PyArray_DTypeMeta *dtypes[] = {String, String, Int64, Int64, Int64};
-    /*
-     * We only have one loop right now, the strided one.  The default type
-     * resolver ensures native byte order/canonical representation.
-     */
-    PyType_Slot slots[] = {
-        {NPY_METH_strided_loop, nullptr},
-        {0, nullptr}
-    };
-
-    PyArrayMethod_Spec spec = {};
-    spec.name = "templated_string_rfind";
-    spec.nin = 4;
-    spec.nout = 1;
-    spec.dtypes = dtypes;
-    spec.slots = slots;
-    spec.flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
-
-    /* All String loops */
-    if (add_loop(umath, "rfind", &spec, string_rfind_loop<npy_byte>) < 0) {
-        goto finish;
-    }
-
-    /* All Unicode loops */
-    dtypes[0] = Unicode;
-    dtypes[1] = Unicode;
-    if (add_loop(umath, "rfind", &spec, string_rfind_loop<npy_ucs4>) < 0) {
-        goto finish;
-    }
-
-    res = 0;
-  finish:
-    Py_DECREF(String);
-    Py_DECREF(Unicode);
-    Py_DECREF(Int64);
     return res;
 }
 
@@ -812,27 +668,48 @@ init_rfind(PyObject *umath)
 NPY_NO_EXPORT int
 init_string_ufuncs(PyObject *umath)
 {
+    int res = -1;
+
+    PyArray_DTypeMeta *String = PyArray_DTypeFromTypeNum(NPY_STRING);
+    PyArray_DTypeMeta *Bool = PyArray_DTypeFromTypeNum(NPY_BOOL);
+    PyArray_DTypeMeta *Int64 = PyArray_DTypeFromTypeNum(NPY_INT64);
+    PyArray_DTypeMeta *dtypes[] = {String, String, String, String, String};
+
     if (init_comparison(umath) < 0) {
-        return -1;
+        goto error;
     }
 
-    if (init_add(umath) < 0) {
-        return -1;
+    if (init_ufunc(umath, "add", "templated_string_add", 2, 1, dtypes,
+                   string_add_loop<npy_byte>, string_add_loop<npy_ucs4>, string_addition_resolve_descriptors) < 0) {
+        goto error;
     }
 
-    if (init_isalpha(umath) < 0) {
-        return -1;
+    dtypes[0] = String;
+    dtypes[1] = Bool;
+    if (init_ufunc(umath, "isalpha", "templated_string_isalpha", 1, 1, dtypes,
+                   string_isalpha_loop<npy_byte>, string_isalpha_loop<npy_ucs4>, NULL) < 0) {
+        goto error;
     }
 
-    if (init_find(umath) < 0) {
-        return -1;
+    dtypes[0] = dtypes[1] = String;
+    dtypes[2] = dtypes[3] = dtypes[4] = Int64;
+    if (init_ufunc(umath, "find", "templated_string_find", 4, 1, dtypes,
+                   string_find_loop<npy_byte>, string_find_loop<npy_ucs4>, NULL) < 0) {
+        goto error;
     }
 
-    if (init_rfind(umath) < 0) {
-        return -1;
+    dtypes[0] = dtypes[1] = String;
+    if (init_ufunc(umath, "rfind", "templated_string_rfind", 4, 1, dtypes,
+                   string_rfind_loop<npy_byte>, string_rfind_loop<npy_ucs4>, NULL) < 0) {
+        goto error;
     }
 
-    return 0;
+    res = 0;
+error:
+    Py_DECREF(String);
+    Py_DECREF(Bool);
+    Py_DECREF(Int64);
+    return res;
 }
 
 
