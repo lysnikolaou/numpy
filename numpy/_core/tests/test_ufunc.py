@@ -2896,7 +2896,7 @@ def test_find_non_long_args(dtype):
     end = dtype(len(element))
     arr = np.array([element])
     result = np._core.umath.find(arr, 'a', start, end)
-    assert result.dtype.char == 'l'
+    assert result.dtype == np.dtype("int64")
     assert result == 0
 
 
