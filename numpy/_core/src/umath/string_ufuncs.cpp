@@ -17,84 +17,7 @@
 
 #include "string_ufuncs.h"
 #include "string_fastsearch.h"
-
-
-enum class ENCODING {
-    ASCII, UTF8, UTF32
-};
-
-
-template <ENCODING enc>
-static inline int
-getchar(const unsigned char *buf, npy_ucs4 *out);
-
-
-template <>
-inline int
-getchar<ENCODING::ASCII>(const unsigned char *buf, npy_ucs4 *out)
-{
-    *out = (npy_ucs4) *buf;
-    return 1;
-}
-
-
-template <>
-inline int
-getchar<ENCODING::UTF32>(const unsigned char *buf, npy_ucs4 *out)
-{
-    *out = *(npy_ucs4 *)buf;
-    return 4;
-}
-
-
-template <>
-inline int
-getchar<ENCODING::UTF8>(const unsigned char *buf, npy_ucs4 *out)
-{
-    if (buf[0] <= 0x7F) {
-        // 0zzzzzzz -> 0zzzzzzz
-        *out = (npy_ucs4)(buf[0]);
-        return 1;
-    }
-    else if (buf[0] <= 0xDF) {
-        // 110yyyyy 10zzzzzz -> 00000yyy yyzzzzzz
-        *out = (npy_ucs4)(((buf[0] << 6) + buf[1]) - ((0xC0 << 6) + 0x80));
-        return 2;
-    }
-    else if (buf[0] <= 0xEF) {
-        // 1110xxxx 10yyyyyy 10zzzzzz -> xxxxyyyy yyzzzzzz
-        *out = (npy_ucs4)(((buf[0] << 12) + (buf[1] << 6) + buf[2]) -
-                          ((0xE0 << 12) + (0x80 << 6) + 0x80));
-        return 3;
-    }
-    else {
-        // 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
-        *out = (npy_ucs4)(((buf[0] << 18) + (buf[1] << 12) + (buf[2] << 6) + buf[3]) -
-                          ((0xF0 << 18) + (0x80 << 12) + (0x80 << 6) + 0x80));
-        return 4;
-    }
-}
-
-
-template <ENCODING enc>
-static inline npy_ucs4 *
-getbuf(const unsigned char *data, int len)
-{
-    npy_ucs4 *buf = (npy_ucs4 *) PyMem_Malloc((len + 1) * sizeof(npy_ucs4));
-    if (buf == NULL) {
-        return NULL;
-    }
-
-    int i = 0, j = 0;
-    while (i < len) {
-        int sublen = getchar<enc>(data + j, buf + i);
-        i++;
-        j += sublen;
-    }
-    buf[i] = 0;
-
-    return buf;
-}
+#include "string_buffer.h"
 
 
 template <typename character>
@@ -143,11 +66,12 @@ get_length(const character *str, int elsize)
     return d - str + 1;
 }
 
-template <typename character>
+
+template <ENCODING enc>
 static inline Py_ssize_t
-findslice(const character* str, Py_ssize_t str_len,
-           const character* sub, Py_ssize_t sub_len,
-           Py_ssize_t offset)
+findslice(Buffer<enc> str, Py_ssize_t str_len,
+          Buffer<enc> sub, Py_ssize_t sub_len,
+          Py_ssize_t offset)
 {
     Py_ssize_t pos;
 
@@ -155,7 +79,7 @@ findslice(const character* str, Py_ssize_t str_len,
         return offset;
     }
 
-    pos = fastsearch<character>(str, str_len, sub, sub_len, -1, FAST_SEARCH);
+    pos = fastsearch<enc>(str, str_len, sub, sub_len, -1, FAST_SEARCH);
 
     if (pos >= 0) {
         pos += offset;
@@ -164,10 +88,11 @@ findslice(const character* str, Py_ssize_t str_len,
     return pos;
 }
 
-template <typename character>
+
+template <ENCODING enc>
 static inline Py_ssize_t
-rfindslice(const character* str, Py_ssize_t str_len,
-           const character* sub, Py_ssize_t sub_len,
+rfindslice(Buffer<enc> str, Py_ssize_t str_len,
+           Buffer<enc> sub, Py_ssize_t sub_len,
            Py_ssize_t offset)
 {
     Py_ssize_t pos;
@@ -176,7 +101,7 @@ rfindslice(const character* str, Py_ssize_t str_len,
         return str_len + offset;
     }
 
-    pos = fastsearch<character>(str, str_len, sub, sub_len, -1, FAST_RSEARCH);
+    pos = fastsearch<enc>(str, str_len, sub, sub_len, -1, FAST_RSEARCH);
 
     if (pos >= 0) {
         pos += offset;
@@ -296,74 +221,68 @@ string_isalpha(const character *str, int elsize)
 
 template <ENCODING enc>
 static inline npy_int64
-string_find(const unsigned char *str1, int len1, const unsigned char *str2, int len2, npy_int64 start, npy_int64 end)
+string_find(char *str1, int elsize1, char *str2, int elsize2,
+            npy_int64 start, npy_int64 end)
 {
-    npy_int64 result = -1;
+    Buffer<enc> buf1(str1, elsize1);
+    Buffer<enc> buf2(str2, elsize2);
 
-    npy_ucs4 *buf1 = getbuf<enc>(str1, len1);
-    npy_ucs4 *buf2 = getbuf<enc>(str2, len2);
+    int len1 = buf1.length();
+    int len2 = buf2.length();
 
     ADJUST_INDICES(start, end, len1);
     if (end - start < len2) {
-        goto finish;
+        return -1;
     }
 
     if (len2 == 1) {
         npy_ucs4 ch = *buf2;
-        result = (npy_int64) findchar<npy_ucs4>(buf1 + start, end - start, ch);
+        npy_int64 result = (npy_int64) findchar<enc>(buf1 + start, end - start, ch);
         if (result == -1) {
-            goto finish;
+            return -1;
         } else {
-            result = start + result;
-            goto finish;
+            return start + result;
         }
     }
 
-    result = (npy_int64) findslice<npy_ucs4>(buf1 + start,
-                                             end - start,
-                                             buf2,
-                                             len2,
-                                             start);
-  finish:
-    PyMem_Free(buf1);
-    PyMem_Free(buf2);
-    return result;
+    return (npy_int64) findslice<enc>(buf1 + start,
+                                 end - start,
+                                 buf2,
+                                 len2,
+                                 start);
 }
 
 template <ENCODING enc>
 static inline npy_int64
-string_rfind(const unsigned char *str1, int len1, const unsigned char *str2, int len2, npy_int64 start, npy_int64 end)
+string_rfind(char *str1, int elsize1, char *str2, int elsize2,
+             npy_int64 start, npy_int64 end)
 {
-    npy_int64 result = -1;
+    Buffer<enc> buf1(str1, elsize1);
+    Buffer<enc> buf2(str2, elsize2);
 
-    npy_ucs4 *buf1 = getbuf<enc>(str1, len1);
-    npy_ucs4 *buf2 = getbuf<enc>(str2, len2);
+    int len1 = buf1.length();
+    int len2 = buf2.length();
 
     ADJUST_INDICES(start, end, len1);
     if (end - start < len2) {
-        goto finish;
+        return -1;
     }
 
     if (len2 == 1) {
         npy_ucs4 ch = *buf2;
-        result = (npy_int64) rfindchar<npy_ucs4>(buf1 + start, end - start, ch);
+        npy_int64 result = (npy_int64) rfindchar(buf1 + start, end - start, ch);
         if (result == -1) {
-            goto finish;
+            return -1;
         } else {
-            result = start + result;
-            goto finish;
+            return start + result;
         }
     }
 
-    result = (npy_int64) rfindslice<npy_ucs4>(buf1 + start,
-                                              end - start,
-                                              buf2,
-                                              len2,
-                                              start);
-  finish:
-    PyMem_Free(buf1);
-    PyMem_Free(buf2);
-    return result;
+    return (npy_int64) rfindslice(buf1 + start,
+                                  end - start,
+                                  buf2,
+                                  len2,
+                                  start);
 }
 
 
@@ -503,14 +422,14 @@ string_isalpha_loop(PyArrayMethod_Context *context,
 }
 
 
-template<typename character, ENCODING enc>
+template<ENCODING enc>
 static int
 string_find_loop(PyArrayMethod_Context *context,
         char *const data[], npy_intp const dimensions[],
         npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
 {
-    int elsize1 = context->descriptors[0]->elsize / sizeof(character);
-    int elsize2 = context->descriptors[1]->elsize / sizeof(character);
+    int elsize1 = context->descriptors[0]->elsize;
+    int elsize2 = context->descriptors[1]->elsize;
 
     char *in1 = data[0];
     char *in2 = data[1];
@@ -521,10 +440,8 @@ string_find_loop(PyArrayMethod_Context *context,
     npy_intp N = dimensions[0];
 
     while (N--) {
-        int len1 = get_length<character>((const character *) in1, elsize1);
-        int len2 = get_length<character>((const character *) in2, elsize2);
-        npy_int64 idx = string_find<enc>((const unsigned char *) in1, len1, (const unsigned char *) in2,
-                                         len2, *(npy_int64 *)in3, *(npy_int64 *)in4);
+        npy_int64 idx = string_find<enc>(in1, elsize1, in2, elsize2,
+                                         *(npy_int64 *)in3, *(npy_int64 *)in4);
         *(npy_int64 *)out = idx;
 
         in1 += strides[0];
@@ -537,14 +454,14 @@ string_find_loop(PyArrayMethod_Context *context,
 }
 
 
-template<typename character, ENCODING enc>
+template<ENCODING enc>
 static int
 string_rfind_loop(PyArrayMethod_Context *context,
         char *const data[], npy_intp const dimensions[],
         npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
 {
-    int elsize1 = context->descriptors[0]->elsize / sizeof(character);
-    int elsize2 = context->descriptors[1]->elsize / sizeof(character);
+    int elsize1 = context->descriptors[0]->elsize;
+    int elsize2 = context->descriptors[1]->elsize;
 
     char *in1 = data[0];
     char *in2 = data[1];
@@ -555,10 +472,8 @@ string_rfind_loop(PyArrayMethod_Context *context,
     npy_intp N = dimensions[0];
 
     while (N--) {
-        int len1 = get_length<character>((const character *) in1, elsize1);
-        int len2 = get_length<character>((const character *) in2, elsize2);
-        npy_int64 idx = string_rfind<enc>((const unsigned char *) in1, len1, (const unsigned char *) in2,
-                                          len2, *(npy_int64 *)in3, *(npy_int64 *)in4);
+        npy_int64 idx = string_rfind<enc>(in1, elsize1, in2, elsize2,
+                                          *(npy_int64 *)in3, *(npy_int64 *)in4);
         *(npy_int64 *)out = idx;
 
         in1 += strides[0];
@@ -783,13 +698,13 @@ init_string_ufuncs(PyObject *umath)
     dtypes[0] = dtypes[1] = String;
     dtypes[2] = dtypes[3] = dtypes[4] = Int64;
     if (init_ufunc(umath, "find", "templated_string_find", 4, 1, dtypes,
-                   string_find_loop<npy_byte, ENCODING::ASCII>, string_find_loop<npy_ucs4, ENCODING::UTF32>, NULL) < 0) {
+                   string_find_loop<ENCODING::ASCII>, string_find_loop<ENCODING::UTF32>, NULL) < 0) {
         goto error;
     }
 
     dtypes[0] = dtypes[1] = String;
     if (init_ufunc(umath, "rfind", "templated_string_rfind", 4, 1, dtypes,
-                   string_rfind_loop<npy_byte, ENCODING::ASCII>, string_rfind_loop<npy_ucs4, ENCODING::UTF32>, NULL) < 0) {
+                   string_rfind_loop<ENCODING::ASCII>, string_rfind_loop<ENCODING::UTF32>, NULL) < 0) {
         goto error;
     }
 
