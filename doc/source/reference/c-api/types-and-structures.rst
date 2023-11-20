@@ -1,6 +1,6 @@
 
 *****************************
-Python Types and C-Structures
+Python types and C-structures
 *****************************
 
 .. sectionauthor:: Travis E. Oliphant
@@ -18,7 +18,7 @@ details after the :c:macro:`PyObject_HEAD` (but you have to cast to the
 correct type to access them --- or use accessor functions or macros).
 
 
-New Python Types Defined
+New Python types defined
 ========================
 
 Python types are the functional equivalent in C of classes in Python.
@@ -195,6 +195,14 @@ PyArray_Type and PyArrayObject
       NumPy version, you may add a constant, leaving room for changes in NumPy.
       A solution guaranteed to be compatible with any future NumPy version
       requires the use of a runtime calculate offset and allocation size.
+
+PyGenericArrType_Type
+---------------------
+
+.. c:var:: PyTypeObject PyGenericArrType_Type
+
+   The :c:data:`PyGenericArrType_Type` is the PyTypeObject definition which
+   create the `numpy.generic` python type.
 
 
 PyArrayDescr_Type and PyArray_Descr
@@ -382,8 +390,7 @@ PyArrayDescr_Type and PyArray_Descr
    .. c:type:: npy_hash_t
    .. c:member:: npy_hash_t *hash
 
-       Currently unused. Reserved for future use in caching
-       hash values.
+       Used for caching hash values.
 
 .. c:macro:: NPY_ITEM_REFCOUNT
 
@@ -534,8 +541,8 @@ PyArrayDescr_Type and PyArray_Descr
 
         These members are both pointers to functions to copy data from
         *src* to *dest* and *swap* if indicated. The value of arr is
-        only used for flexible ( :c:data:`NPY_STRING`, :c:data:`NPY_UNICODE`,
-        and :c:data:`NPY_VOID` ) arrays (and is obtained from
+        only used for flexible ( :c:enumerator:`~NPY_TYPES.NPY_STRING`, :c:enumerator:`~NPY_TYPES.NPY_UNICODE`,
+        and :c:enumerator:`~NPY_TYPES.NPY_VOID` ) arrays (and is obtained from
         ``arr->descr->elsize`` ). The second function copies a single
         value, while the first loops over n values with the provided
         strides. These functions can deal with misbehaved *src*
@@ -629,8 +636,8 @@ PyArrayDescr_Type and PyArray_Descr
 
         An array of function pointers to a particular sorting
         algorithms. A particular sorting algorithm is obtained using a
-        key (so far :c:data:`NPY_QUICKSORT`, :c:data:`NPY_HEAPSORT`,
-        and :c:data:`NPY_MERGESORT` are defined). These sorts are done
+        key (so far :c:enumerator:`~NPY_SORTKIND.NPY_QUICKSORT`, :c:enumerator:`~NPY_SORTKIND.NPY_HEAPSORT`,
+        and :c:enumerator:`~NPY_SORTKIND.NPY_MERGESORT` are defined). These sorts are done
         in-place assuming contiguous and aligned data.
 
     .. c:member:: int argsort( \
@@ -659,7 +666,7 @@ PyArrayDescr_Type and PyArray_Descr
 
     .. c:member:: int **cancastscalarkindto
 
-        Either ``NULL`` or an array of :c:type:`NPY_NSCALARKINDS`
+        Either ``NULL`` or an array of :c:enumerator:`~NPY_SCALARKIND.NPY_NSCALARKINDS`
         pointers. These pointers should each be either ``NULL`` or a
         pointer to an array of integers (terminated by
         :c:data:`NPY_NOTYPE`) indicating data-types that a scalar of
@@ -1199,7 +1206,7 @@ value from the array scalar and the function :c:func:`PyArray_Scalar`
 (...) can be used to construct an array scalar from a C-value.
 
 
-Other C-Structures
+Other C-structures
 ==================
 
 A few new C-structures were found to be useful in the development of
