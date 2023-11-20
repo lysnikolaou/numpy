@@ -733,7 +733,7 @@ General check of Python Type
 .. c:function:: int PyArray_CheckScalar(PyObject *op)
 
     Evaluates true if *op* is either an array scalar (an instance of a
-    sub-type of :c:data:`PyGenericArr_Type` ), or an instance of (a
+    sub-type of :c:data:`PyGenericArrType_Type` ), or an instance of (a
     sub-class of) :c:data:`PyArray_Type` whose dimensionality is 0.
 
 .. c:function:: int PyArray_IsPythonNumber(PyObject *op)
@@ -750,13 +750,13 @@ General check of Python Type
 
     Evaluates true if *op* is either a Python scalar object (see
     :c:func:`PyArray_IsPythonScalar`) or an array scalar (an instance of a sub-
-    type of :c:data:`PyGenericArr_Type` ).
+    type of :c:data:`PyGenericArrType_Type` ).
 
 .. c:function:: int PyArray_CheckAnyScalar(PyObject *op)
 
     Evaluates true if *op* is a Python scalar object (see
     :c:func:`PyArray_IsPythonScalar`), an array scalar (an instance of a
-    sub-type of :c:data:`PyGenericArr_Type`) or an instance of a sub-type of
+    sub-type of :c:data:`PyGenericArrType_Type`) or an instance of a sub-type of
     :c:data:`PyArray_Type` whose dimensionality is 0.
 
 
@@ -1086,7 +1086,7 @@ Converting data types
     The returned array must be freed by the caller of this routine
     (using :c:func:`PyDataMem_FREE` ) and all the array objects in it
     ``DECREF`` 'd or a memory-leak will occur. The example template-code
-    below shows a typically usage:
+    below shows a typical usage:
 
     .. versionchanged:: 1.18.0
        A mix of scalars and zero-dimensional arrays now produces a type
@@ -1249,7 +1249,7 @@ Special functions for NPY_OBJECT
     strides, ordering, etc.) Sets the :c:data:`NPY_ARRAY_WRITEBACKIFCOPY` flag
     and ``arr->base``, and set ``base`` to READONLY. Call
     :c:func:`PyArray_ResolveWritebackIfCopy` before calling
-    :c:func:`Py_DECREF` in order copy any changes back to ``base`` and
+    :c:func:`Py_DECREF` in order to copy any changes back to ``base`` and
     reset the READONLY flag.
 
     Returns 0 for success, -1 for failure.
@@ -1994,8 +1994,7 @@ Calculation
 .. c:function:: PyObject* PyArray_Ptp( \
         PyArrayObject* self, int axis, PyArrayObject* out)
 
-    Equivalent to :meth:`ndarray.ptp<numpy.ndarray.ptp>` (*self*, *axis*). Return the difference
-    between the largest element of *self* along *axis* and the
+    Return the difference between the largest element of *self* along *axis* and the
     smallest element of *self* along *axis*. When the result is a single
     element, returns a numpy scalar instead of an ndarray.
 
@@ -2280,7 +2279,7 @@ Other functions
     1 if the lists are identical; otherwise, return 0.
 
 
-Auxiliary Data With Object Semantics
+Auxiliary data with object semantics
 ------------------------------------
 
 .. versionadded:: 1.7.0
@@ -2372,7 +2371,7 @@ an element copier function as a primitive.
     A macro which calls the auxdata's clone function appropriately,
     returning a deep copy of the auxiliary data.
 
-Array Iterators
+Array iterators
 ---------------
 
 As of NumPy 1.6.0, these array iterators are superseded by
@@ -2497,6 +2496,48 @@ Broadcasting (multi-iterators)
     Evaluates TRUE as long as the multi-iterator has not looped
     through all of the elements (of the broadcasted result), otherwise
     it evaluates FALSE.
+
+.. c:function:: npy_intp PyArray_MultiIter_SIZE(PyArrayMultiIterObject* multi)
+
+    .. versionadded:: 1.26.0
+
+    Returns the total broadcasted size of a multi-iterator object. 
+
+.. c:function:: int PyArray_MultiIter_NDIM(PyArrayMultiIterObject* multi)
+
+    .. versionadded:: 1.26.0
+
+    Returns the number of dimensions in the broadcasted result of
+    a multi-iterator object.
+
+.. c:function:: npy_intp PyArray_MultiIter_INDEX(PyArrayMultiIterObject* multi)
+
+    .. versionadded:: 1.26.0
+
+    Returns the current (1-d) index into the broadcasted result
+    of a multi-iterator object.
+
+.. c:function:: int PyArray_MultiIter_NUMITER(PyArrayMultiIterObject* multi)
+
+    .. versionadded:: 1.26.0
+
+    Returns the number of iterators that are represented by a
+    multi-iterator object.
+
+.. c:function:: void** PyArray_MultiIter_ITERS(PyArrayMultiIterObject* multi)
+
+    .. versionadded:: 1.26.0
+
+    Returns an array of iterator objects that holds the iterators for the
+    arrays to be broadcast together. On return, the iterators are adjusted
+    for broadcasting.
+
+.. c:function:: npy_intp* PyArray_MultiIter_DIMS(PyArrayMultiIterObject* multi)
+
+    .. versionadded:: 1.26.0
+
+    Returns a pointer to the dimensions/shape of the broadcasted result of a
+    multi-iterator object.
 
 .. c:function:: int PyArray_Broadcast(PyArrayMultiIterObject* mit)
 
@@ -2633,46 +2674,8 @@ cost of a slight overhead.
     neighborhood. Calling this function after every point of the
     neighborhood has been visited is undefined.
 
-Array mapping
--------------
 
-Array mapping is the machinery behind advanced indexing.
-
-.. c:function:: PyObject* PyArray_MapIterArray(PyArrayObject *a, \
-                 PyObject *index)
-
-    Use advanced indexing to iterate an array.
-
-.. c:function:: void PyArray_MapIterSwapAxes(PyArrayMapIterObject *mit, \
-                PyArrayObject **ret, int getmap)
-
-    Swap the axes to or from their inserted form. ``MapIter`` always puts the
-    advanced (array) indices first in the iteration. But if they are
-    consecutive, it will insert/transpose them back before returning.
-    This is stored as ``mit->consec != 0`` (the place where they are inserted).
-    For assignments, the opposite happens: the values to be assigned are
-    transposed (``getmap=1`` instead of ``getmap=0``). ``getmap=0`` and
-    ``getmap=1`` undo the other operation.
-
-.. c:function:: void PyArray_MapIterNext(PyArrayMapIterObject *mit)
-
-    This function needs to update the state of the map iterator
-    and point ``mit->dataptr`` to the memory-location of the next object.
-
-    Note that this function never handles an extra operand but provides
-    compatibility for an old (exposed) API.
-
-.. c:function:: PyObject* PyArray_MapIterArrayCopyIfOverlap(PyArrayObject *a, \
-                PyObject *index, int copy_if_overlap, PyArrayObject *extra_op)
-
-    Similar to :c:func:`PyArray_MapIterArray` but with an additional
-    ``copy_if_overlap`` argument. If ``copy_if_overlap != 0``, checks if ``a``
-    has memory overlap with any of the arrays in ``index`` and with
-    ``extra_op``, and make copies as appropriate to avoid problems if the
-    input is modified during the iteration. ``iter->array`` may contain a
-    copied array (WRITEBACKIFCOPY set).
-
-Array Scalars
+Array scalars
 -------------
 
 .. c:function:: PyObject* PyArray_Return(PyArrayObject* arr)
@@ -2891,7 +2894,7 @@ Data-type descriptors
     as is stored in the names field of the :c:type:`PyArray_Descr` object.
 
 
-Conversion Utilities
+Conversion utilities
 --------------------
 
 
@@ -3449,10 +3452,6 @@ Miscellaneous Macros
 
     Returns the minimum of *a* and *b*. If (*a*) or (*b*) are
     expressions they are evaluated twice.
-
-.. c:function:: npy_intp PyArray_REFCOUNT(PyObject* op)
-
-    Returns the reference count of any Python object.
 
 .. c:function:: void PyArray_DiscardWritebackIfCopy(PyArrayObject* obj)
 
