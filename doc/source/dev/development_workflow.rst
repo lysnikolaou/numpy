@@ -118,8 +118,8 @@ In more detail
    -a``. The extra ``-a`` flag automatically commits all modified files and
    removes all deleted files. This can save you some typing of numerous ``git
    add`` commands; however, it can add unwanted changes to a commit if you're
-   not careful. For more information, see `why the -a flag?`_ - and the
-   helpful use-case description in the `tangled working copy problem`_.
+   not careful. For more information, see the helpful use-case description in
+   the `tangled working copy problem`_.
 
 #. Push the changes to your forked repo on github_::
 
@@ -196,8 +196,8 @@ from running the test suite on different operating systems and hardware
 platforms to building the docs. In some cases you already know that CI isn't
 needed (or not all of it), for example if you work on CI config files, text in
 the README, or other files that aren't involved in regular build, test or docs
-sequences. In such cases you may explicitly skip CI by including one of these
-fragments in your commit message:
+sequences. In such cases you may explicitly skip CI by including one or more of
+these fragments in each commit message of a PR:
 
 * ``[skip ci]``: skip all CI
 
@@ -500,7 +500,7 @@ Then, go to your forked repository github page, say
 Click on the 'Admin' button, and add anyone else to the repo as a
 collaborator:
 
-   .. image:: pull_button.png
+.. image:: pull_button.png
 
 Now all those people can do::
 

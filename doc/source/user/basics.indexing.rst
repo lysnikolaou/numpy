@@ -194,8 +194,8 @@ concepts to remember include:
 - If the selection tuple has all entries ``:`` except the
   *p*-th entry which is a slice object ``i:j:k``,
   then the returned array has dimension *N* formed by
-  concatenating the sub-arrays returned by integer indexing of
-  elements *i*, *i+k*, ..., *i + (m - 1) k < j*,
+  stacking, along the *p*-th axis, the sub-arrays returned by integer
+  indexing of elements *i*, *i+k*, ..., *i + (m - 1) k < j*.
 
 - Basic slicing with more than one non-``:`` entry in the slicing
   tuple, acts like repeated application of slicing using a single
@@ -491,7 +491,7 @@ regardless of whether those values are :py:data:`True` or
 
 A common use case for this is filtering for desired element values.
 For example, one may wish to select all entries from an array which
-are not :const:`NaN`::
+are not :const:`numpy.nan`::
 
     >>> x = np.array([[1., 2.], [np.nan, 3.], [np.nan, np.nan]])
     >>> x[~np.isnan(x)]
@@ -743,7 +743,7 @@ For example::
 
 .. _flat-iterator-indexing:
 
-Flat Iterator indexing
+Flat iterator indexing
 ----------------------
 
 :attr:`x.flat <ndarray.flat>` returns an iterator that will iterate
@@ -785,7 +785,7 @@ exceptions (assigning complex to floats or ints): ::
  >>> x[1] = 1.2
  >>> x[1]
  1
- >>> x[1] = 1.2j
+ >>> x[1] = 1.2j  # doctest: +IGNORE_EXCEPTION_DETAIL
  Traceback (most recent call last):
    ...
  TypeError: can't convert complex to int
