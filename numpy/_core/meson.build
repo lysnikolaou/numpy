@@ -60,6 +60,8 @@ if r.returncode() != 0
   error('verify_c_api_version.py failed with output:\n' + r.stderr().strip())
 endif
 
+libnpymath_install_dir = py.get_install_dir() / 'numpy' / '_core' / 'lib'
+libnpymath_headers_dir = 'numpy' / 'core' / 'include' / 'numpy'
 subdir('src' / 'libnpymath' / 'src')
 
 
@@ -500,50 +502,10 @@ _numpyconfig_h = configure_file(
   install_tag: 'devel'
 )
 
-# Build npymath static library
-# ----------------------------
-
-staticlib_cflags = []
-staticlib_cppflags = []
-if cc.get_id() == 'msvc'
-  # Disable voltbl section for vc142 to allow link using mingw-w64; see:
-  # https://github.com/matthew-brett/dll_investigation/issues/1#issuecomment-1100468171
-  # Needs to be added to static libraries that are shipped for reuse (i.e.,
-  # libnpymath and libnpyrandom)
-  if cc.has_argument('-d2VolatileMetadata-')
-     staticlib_cflags +=  '-d2VolatileMetadata-'
-  endif
-endif
-
-npy_math_internal_h = custom_target(
-  output: 'npy_math_internal.h',
-  input: 'src/npymath/npy_math_internal.h.src',
-  command: [src_file_cli, '@INPUT@', '-o', '@OUTPUT@'],
-)
-
-npymath_sources = [
-  src_file.process('src/npymath/ieee754.c.src'),
-  src_file.process('src/npymath/npy_math_complex.c.src'),
-  npy_math_internal_h,
-  'src/npymath/halffloat.cpp',
-  'src/npymath/npy_math.c',
-]
-
 dir_separator = '/'
 if build_machine.system() == 'windows'
   dir_separator = '\\'
 endif
-configure_file(
-  input: 'npymath.ini.in',
-  output: 'npymath.ini',
-  configuration: configuration_data({
-    'pkgname' : 'numpy._core',
-    'sep' : dir_separator,
-  }),
-  install: true,
-  install_dir: np_dir / '_core/lib/npy-pkg-config',
-  install_tag: 'devel'
-)
 configure_file(
   input: 'mlib.ini.in',
   output: 'mlib.ini',
