@@ -16,6 +16,7 @@ The preferred alias for `defchararray` is `numpy.char`.
 
 """
 import functools
+import sys
 from .numerictypes import (
     string_, unicode_, integer, int_, object_, bool_, character)
 from .numeric import ndarray, compare_chararrays
@@ -24,6 +25,40 @@ from numpy.core.multiarray import _vec_string
 from numpy.core.overrides import set_module
 from numpy.core import overrides
 from numpy.compat import asbytes
+from numpy.core.umath import (
+    add as _add_ufunc,
+    multiply as _multiply_ufunc,
+    isalpha as _isalpha_ufunc,
+    isdigit as _isdigit_ufunc,
+    isalnum as _isalnum_ufunc,
+    isspace as _isspace_ufunc,
+    islower as _islower_ufunc,
+    isupper as _isupper_ufunc,
+    istitle as _istitle_ufunc,
+    isdecimal as _isdecimal_ufunc,
+    isnumeric as _isnumeric_ufunc,
+    str_len as _str_len_ufunc,
+    find as _find_ufunc,
+    rfind as _rfind_ufunc,
+    index as _index_ufunc,
+    rindex as _rindex_ufunc,
+    count as _count_ufunc,
+    startswith as _startswith_ufunc,
+    endswith as _endswith_ufunc,
+    _lstrip_whitespace,
+    _lstrip_chars,
+    _rstrip_whitespace,
+    _rstrip_chars,
+    _strip_whitespace,
+    _strip_chars,
+    _replace,
+    _expandtabs_length,
+    _expandtabs,
+    _center,
+    _ljust,
+    _rjust,
+    _zfill,
+)
 import numpy
 
 __all__ = [
@@ -59,12 +94,19 @@ def _use_unicode(*args):
             return unicode_
     return string_
 
-def _to_string_or_unicode_array(result):
+def _to_string_or_unicode_array(result, output_dtype_like):
     """
-    Helper function to cast a result back into a string or unicode array
-    if an object array must be used as an intermediary.
+    Helper function to cast a result back into an array
+    with the appropriate dtype if an object array must be used
+    as an intermediary.
     """
-    return numpy.asarray(result.tolist())
+    output_dtype_like = numpy.asarray(output_dtype_like)
+    if result.size == 0:
+        # Calling asarray & tolist in an empty array would result
+        # in losing shape information
+        return result.astype(output_dtype_like.dtype)
+    ret = numpy.asarray(result.tolist())
+    return ret.astype(f"{output_dtype_like.dtype.char}{_get_num_chars(ret)}")
 
 def _clean_args(*args):
     """
@@ -288,10 +330,7 @@ def str_len(a):
     >>> np.char.str_len(a)
     array([[5, 5], [1, 1]])
     """
-    # Note: __len__, etc. currently return ints, which are not C-integers.
-    # Generally intp would be expected for lengths, although int is sufficient
-    # due to the dtype itemsize limitation.
-    return _vec_string(a, int_, '__len__')
+    return _str_len_ufunc(a)
 
 
 @array_function_dispatch(_binary_op_dispatcher)
@@ -315,11 +354,7 @@ def add(x1, x2):
         of the same shape as `x1` and `x2`.
 
     """
-    arr1 = numpy.asarray(x1)
-    arr2 = numpy.asarray(x2)
-    out_size = _get_num_chars(arr1) + _get_num_chars(arr2)
-    dtype = _use_unicode(arr1, arr2)
-    return _vec_string(arr1, (dtype, out_size), '__add__', (arr2,))
+    return _add_ufunc(x1, x2)
 
 
 def _multiply_dispatcher(a, i):
@@ -364,13 +399,23 @@ def multiply(a, i):
     array([['a', 'bb', 'ccc'],
            ['d', 'ee', 'fff']], dtype='<U3')
     """
-    a_arr = numpy.asarray(a)
-    i_arr = numpy.asarray(i)
-    if not issubclass(i_arr.dtype.type, integer):
+    a = numpy.asanyarray(a)
+
+    i = numpy.asanyarray(i)
+    if not numpy.issubdtype(i.dtype, numpy.integer):
         raise ValueError("Can only multiply by integers")
-    out_size = _get_num_chars(a_arr) * max(int(i_arr.max()), 0)
-    return _vec_string(
-        a_arr, (a_arr.dtype.type, out_size), '__mul__', (i_arr,))
+    i = numpy.maximum(i, 0)
+
+    a_len = str_len(a)
+
+    # Ensure we can do a_len * i without overflow.
+    if numpy.any(a_len > sys.maxsize / numpy.maximum(i, 1)):
+        raise MemoryError("repeated string is too long")
+
+    buffersizes = a_len * i
+    out_dtype = f"{a.dtype.char}{buffersizes.max()}"
+    out = numpy.empty_like(a, shape=buffersizes.shape, dtype=out_dtype)
+    return _multiply_ufunc(a, i, out=out)
 
 
 def _mod_dispatcher(a, values):
@@ -402,7 +447,7 @@ def mod(a, values):
 
     """
     return _to_string_or_unicode_array(
-        _vec_string(a, object_, '__mod__', (values,)))
+        _vec_string(a, object_, '__mod__', (values,)), a)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -492,13 +537,19 @@ def center(a, width, fillchar=' '):
     array(['a', '1', 'b', '2'], dtype='<U1')
 
     """
-    a_arr = numpy.asarray(a)
-    width_arr = numpy.asarray(width)
-    size = int(numpy.max(width_arr.flat))
-    if numpy.issubdtype(a_arr.dtype, numpy.string_):
-        fillchar = asbytes(fillchar)
-    return _vec_string(
-        a_arr, (a_arr.dtype.type, size), 'center', (width_arr, fillchar))
+    a = numpy.asanyarray(a)
+    width = numpy.maximum(str_len(a), width)
+    fillchar = numpy.asanyarray(fillchar, dtype=a.dtype)
+
+    if numpy.any(str_len(fillchar) != 1):
+        raise TypeError(
+            "The fill character must be exactly one character long")
+
+    out_dtype = f"{a.dtype.char}{width.max()}"
+    shape = numpy.broadcast_shapes(a.shape, width.shape, fillchar.shape)
+    out = numpy.empty_like(a, shape=shape, dtype=out_dtype)
+    return _center(a, width, fillchar, out=out)
+
 
 
 def _count_dispatcher(a, sub, start=None, end=None):
@@ -548,7 +599,8 @@ def count(a, sub, start=0, end=None):
     array([1, 0, 0])
 
     """
-    return _vec_string(a, int_, 'count', [sub, start] + _clean_args(end))
+    end = end if end is not None else numpy.iinfo(numpy.int64).max
+    return _count_ufunc(a, sub, start, end)
 
 
 def _code_dispatcher(a, encoding=None, errors=None):
@@ -598,7 +650,8 @@ def decode(a, encoding=None, errors=None):
 
     """
     return _to_string_or_unicode_array(
-        _vec_string(a, object_, 'decode', _clean_args(encoding, errors)))
+        _vec_string(a, object_, 'decode', _clean_args(encoding, errors)),
+        numpy.str_(''))
 
 
 @array_function_dispatch(_code_dispatcher)
@@ -634,7 +687,8 @@ def encode(a, encoding=None, errors=None):
 
     """
     return _to_string_or_unicode_array(
-        _vec_string(a, object_, 'encode', _clean_args(encoding, errors)))
+        _vec_string(a, object_, 'encode', _clean_args(encoding, errors)),
+        numpy.bytes_(b''))
 
 
 def _endswith_dispatcher(a, suffix, start=None, end=None):
@@ -681,8 +735,8 @@ def endswith(a, suffix, start=0, end=None):
     array([False,  True])
 
     """
-    return _vec_string(
-        a, bool_, 'endswith', [suffix, start] + _clean_args(end))
+    end = end if end is not None else numpy.iinfo(numpy.int64).max
+    return _endswith_ufunc(a, suffix, start, end)
 
 
 def _expandtabs_dispatcher(a, tabsize=None):
@@ -721,8 +775,13 @@ def expandtabs(a, tabsize=8):
     str.expandtabs
 
     """
-    return _to_string_or_unicode_array(
-        _vec_string(a, object_, 'expandtabs', (tabsize,)))
+    a = numpy.asanyarray(a)
+    tabsize = numpy.asanyarray(tabsize)
+
+    buffersizes = _expandtabs_length(a, tabsize)
+    out_dtype = f"{a.dtype.char}{buffersizes.max()}"
+    out = numpy.empty_like(a, shape=buffersizes.shape, dtype=out_dtype)
+    return _expandtabs(a, tabsize, out=out)
 
 
 @array_function_dispatch(_count_dispatcher)
@@ -763,8 +822,8 @@ def find(a, sub, start=0, end=None):
     array([11])
 
     """
-    return _vec_string(
-        a, int_, 'find', [sub, start] + _clean_args(end))
+    end = end if end is not None else numpy.iinfo(numpy.int64).max
+    return _find_ufunc(a, sub, start, end)
 
 
 @array_function_dispatch(_count_dispatcher)
@@ -798,8 +857,8 @@ def index(a, sub, start=0, end=None):
     array([9])
 
     """
-    return _vec_string(
-        a, int_, 'index', [sub, start] + _clean_args(end))
+    end = end if end is not None else numpy.iinfo(numpy.int64).max
+    return _index_ufunc(a, sub, start, end)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -825,7 +884,7 @@ def isalnum(a):
     --------
     str.isalnum
     """
-    return _vec_string(a, bool_, 'isalnum')
+    return _isalnum_ufunc(a)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -851,7 +910,7 @@ def isalpha(a):
     --------
     str.isalpha
     """
-    return _vec_string(a, bool_, 'isalpha')
+    return _isalpha_ufunc(a)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -886,7 +945,7 @@ def isdigit(a):
     >>> np.char.isdigit(a)
     array([[False, False,  True], [False,  True,  True]])
     """
-    return _vec_string(a, bool_, 'isdigit')
+    return _isdigit_ufunc(a)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -913,7 +972,7 @@ def islower(a):
     --------
     str.islower
     """
-    return _vec_string(a, bool_, 'islower')
+    return _islower_ufunc(a)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -940,7 +999,7 @@ def isspace(a):
     --------
     str.isspace
     """
-    return _vec_string(a, bool_, 'isspace')
+    return _isspace_ufunc(a)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -966,7 +1025,7 @@ def istitle(a):
     --------
     str.istitle
     """
-    return _vec_string(a, bool_, 'istitle')
+    return _istitle_ufunc(a)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -1003,7 +1062,7 @@ def isupper(a):
     array([False,  True, False]) 
 
     """
-    return _vec_string(a, bool_, 'isupper')
+    return _isupper_ufunc(a)
 
 
 def _join_dispatcher(sep, seq):
@@ -1042,7 +1101,7 @@ def join(sep, seq):
 
     """
     return _to_string_or_unicode_array(
-        _vec_string(sep, object_, 'join', (seq,)))
+        _vec_string(sep, object_, 'join', (seq,)), seq)
 
 
 
@@ -1077,13 +1136,18 @@ def ljust(a, width, fillchar=' '):
     str.ljust
 
     """
-    a_arr = numpy.asarray(a)
-    width_arr = numpy.asarray(width)
-    size = int(numpy.max(width_arr.flat))
-    if numpy.issubdtype(a_arr.dtype, numpy.string_):
-        fillchar = asbytes(fillchar)
-    return _vec_string(
-        a_arr, (a_arr.dtype.type, size), 'ljust', (width_arr, fillchar))
+    a = numpy.asanyarray(a)
+    width = numpy.maximum(str_len(a), width)
+    fillchar = numpy.asanyarray(fillchar, dtype=a.dtype)
+
+    if numpy.any(str_len(fillchar) != 1):
+        raise TypeError(
+            "The fill character must be exactly one character long")
+
+    shape = numpy.broadcast_shapes(a.shape, width.shape, fillchar.shape)
+    out_dtype = f"{a.dtype.char}{width.max()}"
+    out = numpy.empty_like(a, shape=shape, dtype=out_dtype)
+    return _ljust(a, width, fillchar, out=out)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -1176,8 +1240,9 @@ def lstrip(a, chars=None):
     True
 
     """
-    a_arr = numpy.asarray(a)
-    return _vec_string(a_arr, a_arr.dtype, 'lstrip', (chars,))
+    if chars is None:
+        return _lstrip_whitespace(a)
+    return _lstrip_chars(a, chars)
 
 
 def _partition_dispatcher(a, sep):
@@ -1217,7 +1282,7 @@ def partition(a, sep):
 
     """
     return _to_string_or_unicode_array(
-        _vec_string(a, object_, 'partition', (sep,)))
+        _vec_string(a, object_, 'partition', (sep,)), a)
 
 
 def _replace_dispatcher(a, old, new, count=None):
@@ -1225,7 +1290,7 @@ def _replace_dispatcher(a, old, new, count=None):
 
 
 @array_function_dispatch(_replace_dispatcher)
-def replace(a, old, new, count=None):
+def replace(a, old, new, count=-1):
     """
     For each element in `a`, return a copy of the string with all
     occurrences of substring `old` replaced by `new`.
@@ -1261,9 +1326,19 @@ def replace(a, old, new, count=None):
     >>> np.char.replace(a, 'is', 'was')
     array(['The dwash was fresh', 'Thwas was it'], dtype='<U19')
     """
-    return _to_string_or_unicode_array(
-        _vec_string(
-            a, object_, 'replace', [old, new] + _clean_args(count)))
+    arr = numpy.asanyarray(a)
+    a_dt = arr.dtype
+    old = numpy.asanyarray(old, dtype=getattr(old, 'dtype', a_dt))
+    new = numpy.asanyarray(new, dtype=getattr(new, 'dtype', a_dt))
+
+    counts = _count_ufunc(arr, old, 0, numpy.iinfo(numpy.int64).max)
+    count = numpy.asanyarray(count)
+    counts = numpy.where(count < 0, counts, numpy.minimum(counts, count))
+
+    buffersizes = str_len(arr) + counts * (str_len(new) - str_len(old))
+    out_dtype = f"{arr.dtype.char}{buffersizes.max()}"
+    out = numpy.empty_like(arr, shape=buffersizes.shape, dtype=out_dtype)
+    return _replace(arr, old, new, counts, out=out)
 
 
 @array_function_dispatch(_count_dispatcher)
@@ -1295,8 +1370,8 @@ def rfind(a, sub, start=0, end=None):
     str.rfind
 
     """
-    return _vec_string(
-        a, int_, 'rfind', [sub, start] + _clean_args(end))
+    end =  end if end is not None else numpy.iinfo(numpy.int64).max
+    return _rfind_ufunc(a, sub, start, end)
 
 
 @array_function_dispatch(_count_dispatcher)
@@ -1325,8 +1400,8 @@ def rindex(a, sub, start=0, end=None):
     rfind, str.rindex
 
     """
-    return _vec_string(
-        a, int_, 'rindex', [sub, start] + _clean_args(end))
+    end = end if end is not None else numpy.iinfo(numpy.int64).max
+    return _rindex_ufunc(a, sub, start, end)
 
 
 @array_function_dispatch(_just_dispatcher)
@@ -1356,13 +1431,19 @@ def rjust(a, width, fillchar=' '):
     str.rjust
 
     """
-    a_arr = numpy.asarray(a)
-    width_arr = numpy.asarray(width)
-    size = int(numpy.max(width_arr.flat))
-    if numpy.issubdtype(a_arr.dtype, numpy.string_):
-        fillchar = asbytes(fillchar)
-    return _vec_string(
-        a_arr, (a_arr.dtype.type, size), 'rjust', (width_arr, fillchar))
+    a = numpy.asanyarray(a)
+    width = numpy.maximum(str_len(a), width)
+    fillchar = numpy.asanyarray(fillchar, dtype=a.dtype)
+
+    if numpy.any(str_len(fillchar) != 1):
+        raise TypeError(
+            "The fill character must be exactly one character long")
+
+    shape = numpy.broadcast_shapes(a.shape, width.shape, fillchar.shape)
+    out_dtype = f"{a.dtype.char}{width.max()}"
+    out = numpy.empty_like(a, shape=shape, dtype=out_dtype)
+    return _rjust(a, width, fillchar, out=out)
+
 
 
 @array_function_dispatch(_partition_dispatcher)
@@ -1398,7 +1479,7 @@ def rpartition(a, sep):
 
     """
     return _to_string_or_unicode_array(
-        _vec_string(a, object_, 'rpartition', (sep,)))
+        _vec_string(a, object_, 'rpartition', (sep,)), a)
 
 
 def _split_dispatcher(a, sep=None, maxsplit=None):
@@ -1488,8 +1569,9 @@ def rstrip(a, chars=None):
         dtype='|S7')
 
     """
-    a_arr = numpy.asarray(a)
-    return _vec_string(a_arr, a_arr.dtype, 'rstrip', (chars,))
+    if chars is None:
+        return _rstrip_whitespace(a)
+    return _rstrip_chars(a, chars)
 
 
 @array_function_dispatch(_split_dispatcher)
@@ -1593,8 +1675,8 @@ def startswith(a, prefix, start=0, end=None):
     str.startswith
 
     """
-    return _vec_string(
-        a, bool_, 'startswith', [prefix, start] + _clean_args(end))
+    end = end if end is not None else numpy.iinfo(numpy.int64).max
+    return _startswith_ufunc(a, prefix, start, end)
 
 
 @array_function_dispatch(_strip_dispatcher)
@@ -1638,8 +1720,9 @@ def strip(a, chars=None):
     array(['aAaAa', '  aA  ', 'abBABba'], dtype='<U7')
 
     """
-    a_arr = numpy.asarray(a)
-    return _vec_string(a_arr, a_arr.dtype, 'strip', _clean_args(chars))
+    if chars is None:
+        return _strip_whitespace(a)
+    return _strip_chars(a, chars)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -1824,11 +1907,13 @@ def zfill(a, width):
     str.zfill
 
     """
-    a_arr = numpy.asarray(a)
-    width_arr = numpy.asarray(width)
-    size = int(numpy.max(width_arr.flat))
-    return _vec_string(
-        a_arr, (a_arr.dtype.type, size), 'zfill', (width_arr,))
+    a = numpy.asanyarray(a)
+    width = numpy.maximum(str_len(a), width)
+
+    shape = numpy.broadcast_shapes(a.shape, width.shape)
+    out_dtype = f"{a.dtype.char}{width.max()}"
+    out = numpy.empty_like(a, shape=shape, dtype=out_dtype)
+    return _zfill(a, width, out=out)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -1863,9 +1948,7 @@ def isnumeric(a):
     array([ True, False, False, False, False])
 
     """
-    if _use_unicode(a) != unicode_:
-        raise TypeError("isnumeric is only available for Unicode strings and arrays")
-    return _vec_string(a, bool_, 'isnumeric')
+    return _isnumeric_ufunc(a)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
@@ -1900,9 +1983,7 @@ def isdecimal(a):
     array([ True, False, False, False])
 
     """ 
-    if _use_unicode(a) != unicode_:
-        raise TypeError("isnumeric is only available for Unicode strings and arrays")
-    return _vec_string(a, bool_, 'isdecimal')
+    return _isdecimal_ufunc(a)
 
 
 @set_module('numpy')
@@ -2081,9 +2162,21 @@ class chararray(ndarray):
         _globalvar = 0
         return self
 
+    def __array_prepare__(self, arr, context=None):
+        # When calling a ufunc, we return a chararray if the ufunc output
+        # is a string-like array, or an ndarray otherwise
+        if arr.dtype.char in "SUbc":
+            return arr.view(type(self))
+        return arr
+
+    def __array_wrap__(self, arr, context=None):
+        if arr.dtype.char in "SUbc":
+            return arr.view(type(self))
+        return arr
+
     def __array_finalize__(self, obj):
         # The b is a special case because it is used for reconstructing.
-        if not _globalvar and self.dtype.char not in 'SUbc':
+        if not _globalvar and self.dtype.char not in 'VSUbc':
             raise ValueError("Can only create a chararray from string data.")
 
     def __getitem__(self, obj):
@@ -2504,7 +2597,8 @@ class chararray(ndarray):
         char.replace
 
         """
-        return asarray(replace(self, old, new, count))
+        return asarray(replace(self, old, new,
+                               count if count is not None else -1))
 
     def rfind(self, sub, start=0, end=None):
         """

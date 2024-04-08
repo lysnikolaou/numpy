@@ -191,6 +191,8 @@ typedef struct PyArrayMethodObject_tag {
     NPY_CASTING casting;
     /* default flags. The get_strided_loop function can override these */
     NPY_ARRAYMETHOD_FLAGS flags;
+    /* pointer to possible data needed inside the loop (e.g., a function pointer) */
+    void *static_data;
     resolve_descriptors_function *resolve_descriptors;
     get_loop_function *get_strided_loop;
     /* Typical loop functions (contiguous ones are used in current casts) */
@@ -237,6 +239,7 @@ extern NPY_NO_EXPORT PyTypeObject PyBoundArrayMethod_Type;
 #define NPY_METH_contiguous_loop 4
 #define NPY_METH_unaligned_strided_loop 5
 #define NPY_METH_unaligned_contiguous_loop 6
+#define _NPY_METH_static_data 10
 
 
 /*
