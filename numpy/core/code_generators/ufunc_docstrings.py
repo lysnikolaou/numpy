@@ -4214,3 +4214,820 @@ add_newdoc('numpy.core.umath', 'lcm',
     array([ 0, 20, 20, 60, 20, 20])
 
     """)
+
+add_newdoc('numpy._core.umath', 'str_len',
+    """
+    Returns the length of each element. For byte strings,
+    this is the number of bytes, while, for Unicode strings,
+    it is the number of Unicode code points.
+
+    Parameters
+    ----------
+    x : array_like, with ``bytes_``, or ``str_`` dtype
+    $PARAMS
+
+    Returns
+    -------
+    y : ndarray
+        Output array of ints
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    len
+
+    Examples
+    --------
+    >>> a = np.array(['Grace Hopper Conference', 'Open Source Day'])
+    >>> np.strings.str_len(a)
+    array([23, 15])
+    >>> a = np.array(['\u0420', '\u043e'])
+    >>> np.strings.str_len(a)
+    array([1, 1])
+    >>> a = np.array([['hello', 'world'], ['\u0420', '\u043e']])
+    >>> np.strings.str_len(a)
+    array([[5, 5], [1, 1]])
+
+    """)
+
+add_newdoc('numpy._core.umath', 'isalpha',
+    """
+    Returns true for each element if all characters in the data
+    interpreted as a string are alphabetic and there is at least
+    one character, false otherwise.
+
+    For byte strings (i.e. ``bytes``), alphabetic characters are
+    those byte values in the sequence
+    b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'. For
+    Unicode strings, alphabetic characters are those characters
+    defined in the Unicode character database as “Letter”.
+
+    Parameters
+    ----------
+    x : array_like, with ``bytes_``, or ``str_`` dtype
+    $PARAMS
+
+    Returns
+    -------
+    y : ndarray
+        Output array of bools
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    str.isalpha
+
+    """)
+
+add_newdoc('numpy._core.umath', 'isdigit',
+    """
+    Returns true for each element if all characters in the string are
+    digits and there is at least one character, false otherwise.
+
+    For byte strings, digits are the byte values in the sequence
+    b'0123456789'. For Unicode strings, digits include decimal
+    characters and digits that need special handling, such as the
+    compatibility superscript digits. This also covers digits which
+    cannot be used to form numbers in base 10, like the Kharosthi numbers.
+
+    Parameters
+    ----------
+    x : array_like, with ``bytes_``, or ``str_`` dtype
+    $PARAMS
+
+    Returns
+    -------
+    y : ndarray
+        Output array of bools
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    str.isdigit
+
+    Examples
+    --------
+    >>> a = np.array(['a', 'b', '0'])
+    >>> np.strings.isdigit(a)
+    array([False, False,  True])
+    >>> a = np.array([['a', 'b', '0'], ['c', '1', '2']])
+    >>> np.strings.isdigit(a)
+    array([[False, False,  True], [False,  True,  True]])
+
+    """)
+
+add_newdoc('numpy._core.umath', 'isspace',
+    r"""
+    Returns true for each element if there are only whitespace
+    characters in the string and there is at least one character,
+    false otherwise.
+
+    For byte strings, whitespace characters are the ones in the
+    sequence b' \t\n\r\x0b\f'. For Unicode strings, a character is
+    whitespace, if, in the Unicode character database, its general
+    category is Zs (“Separator, space”), or its bidirectional class
+    is one of WS, B, or S.
+
+    Parameters
+    ----------
+    x : array_like, with ``bytes_``, or ``str_`` dtype
+    $PARAMS
+
+    Returns
+    -------
+    y : ndarray
+        Output array of bools
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    str.isspace
+
+    """)
+
+add_newdoc('numpy._core.umath', 'isalnum',
+    """
+    Returns true for each element if all characters in the string are
+    alphanumeric and there is at least one character, false otherwise.
+
+    Parameters
+    ----------
+    x : array_like, with ``bytes_`` or ``str_`` dtype
+    $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of bool
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    str.isalnum
+
+    Examples
+    --------
+    >>> a = np.array(['a', '1', 'a1', '(', ''])
+    >>> np.strings.isalnum(a)
+    array([ True,  True,  True, False, False])
+    
+    """)
+
+add_newdoc('numpy._core.umath', 'islower',
+    """
+    Returns true for each element if all cased characters in the
+    string are lowercase and there is at least one cased character,
+    false otherwise.
+
+    Parameters
+    ----------
+    x : array_like, with ``bytes_`` or ``str_`` dtype
+    $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of bools
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    str.islower
+
+    Examples
+    --------
+    >>> np.strings.islower("GHC")
+    array(False)
+    >>> np.strings.islower("ghc")
+    array(True)
+
+    """)
+
+add_newdoc('numpy._core.umath', 'isupper',
+    """
+    Return true for each element if all cased characters in the
+    string are uppercase and there is at least one character, false
+    otherwise.
+
+    Parameters
+    ----------
+    x : array_like, with ``bytes_`` or ``str_`` dtype
+    $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of bools
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    str.isupper
+
+    Examples
+    --------
+    >>> np.strings.isupper("GHC")
+    array(True)     
+    >>> a = np.array(["hello", "HELLO", "Hello"])
+    >>> np.strings.isupper(a)
+    array([False,  True, False]) 
+
+    """)
+
+add_newdoc('numpy._core.umath', 'istitle',
+    """
+    Returns true for each element if the element is a titlecased
+    string and there is at least one character, false otherwise.
+
+    Parameters
+    ----------
+    x : array_like, with ``bytes_`` or ``str_`` dtype
+    $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of bools
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    str.istitle
+
+    Examples
+    --------
+    >>> np.strings.istitle("Numpy Is Great")
+    array(True)
+
+    >>> np.strings.istitle("Numpy is great")
+    array(False)
+    
+    """)
+
+add_newdoc('numpy._core.umath', 'isdecimal',
+    """
+    For each element, return True if there are only decimal
+    characters in the element.
+
+    Decimal characters include digit characters, and all characters
+    that can be used to form decimal-radix numbers,
+    e.g. ``U+0660, ARABIC-INDIC DIGIT ZERO``.
+
+    Parameters
+    ----------
+    x : array_like, with ``str_`` dtype
+    $PARAMS
+
+    Returns
+    -------
+    y : ndarray
+        Output array of bools
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    str.isdecimal
+
+    Examples
+    --------
+    >>> np.strings.isdecimal(['12345', '4.99', '123ABC', ''])
+    array([ True, False, False, False])
+
+    """)
+
+add_newdoc('numpy._core.umath', 'isnumeric',
+    """
+    For each element, return True if there are only numeric
+    characters in the element.
+
+    Numeric characters include digit characters, and all characters
+    that have the Unicode numeric value property, e.g. ``U+2155,
+    VULGAR FRACTION ONE FIFTH``.
+
+    Parameters
+    ----------
+    x : array_like, with ``str_`` dtype
+    $PARAMS
+
+    Returns
+    -------
+    y : ndarray
+        Output array of bools
+        $OUT_SCALAR_1
+
+    See Also
+    --------
+    str.isnumeric
+
+    Examples
+    --------
+    >>> np.strings.isnumeric(['123', '123abc', '9.0', '1/4', 'VIII'])
+    array([ True, False, False, False, False])
+
+    """)
+
+add_newdoc('numpy._core.umath', 'find',
+    """
+    For each element, return the lowest index in the string where
+    substring `x2` is found, such that `x2` is contained in the
+    range [`x3`, `x4`].
+
+    Parameters
+    ----------
+    x1 : array-like, with ``bytes_``, or ``str_`` dtype
+
+    x2 : array-like, with ``bytes_``, or ``str_`` dtype
+
+    x3 : array_like, with ``int_`` dtype
+
+    x4 : array_like, with ``int_`` dtype
+        $PARAMS
+
+    `x3` and `x4` are interpreted as in slice notation.
+
+    Returns
+    -------
+    y : ndarray
+        Output array of ints
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.find
+
+    Examples
+    --------
+    >>> a = np.array(["NumPy is a Python library"])
+    >>> np.strings.find(a, "Python", 0, None)
+    array([11])
+
+    """)
+
+add_newdoc('numpy._core.umath', 'rfind',
+    """
+    For each element, return the highest index in the string where
+    substring `x2` is found, such that `x2` is contained in the
+    range [`x3`, `x4`].
+
+    Parameters
+    ----------
+    x1 : array-like, with ``bytes_``, or ``str_`` dtype
+
+    x2 : array-like, with ``bytes_``, or ``str_`` dtype
+
+    x3 : array_like, with ``int_`` dtype
+
+    x4 : array_like, with ``int_`` dtype
+        $PARAMS
+
+    `x3` and `x4` are interpreted as in slice notation.
+
+    Returns
+    -------
+    y : ndarray
+        Output array of ints
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.rfind
+
+    """)
+
+add_newdoc('numpy._core.umath', 'count',
+    """
+    Returns an array with the number of non-overlapping occurrences of
+    substring `x2` in the range [`x3`, `x4`].
+
+    Parameters
+    ----------
+    x1 : array-like, with ``bytes_``, or ``str_`` dtype
+
+    x2 : array-like, with ``bytes_``, or ``str_`` dtype
+       The substring to search for.
+
+    x3 : array_like, with ``int_`` dtype
+
+    x4 : array_like, with ``int_`` dtype
+        $PARAMS
+
+    `x3` and `x4` are interpreted as in slice notation.
+
+    Returns
+    -------
+    y : ndarray
+        Output array of ints
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.count
+
+    Examples
+    --------
+    >>> c = np.array(['aAaAaA', '  aA  ', 'abBABba'])
+    >>> c
+    array(['aAaAaA', '  aA  ', 'abBABba'], dtype='<U7')
+    >>> np.strings.count(c, 'A')
+    array([3, 1, 1])
+    >>> np.strings.count(c, 'aA')
+    array([3, 1, 0])
+    >>> np.strings.count(c, 'A', start=1, end=4)
+    array([2, 1, 1])
+    >>> np.strings.count(c, 'A', start=1, end=3)
+    array([1, 0, 0])
+
+    """)
+
+add_newdoc('numpy._core.umath', 'index',
+    """
+    Like `find`, but raises :exc:`ValueError` when the substring is not found.
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``unicode_`` dtype
+
+    x2 : array_like, with ``bytes_`` or ``unicode_`` dtype
+
+    x3, x4 : array_like, with any integer dtype
+        The range to look in, interpreted as in slice notation.
+        $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of ints.  Raises :exc:`ValueError` if `x2` is not found.
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    find, str.find
+
+    Examples
+    --------
+    >>> a = np.array(["Computer Science"])
+    >>> np.strings.index(a, "Science")
+    array([9])
+
+    """)
+
+add_newdoc('numpy._core.umath', 'rindex',
+    """
+    Like `rfind`, but raises :exc:`ValueError` when the substring is not found.
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``unicode_`` dtype
+
+    x2 : array_like, with ``bytes_`` or ``unicode_`` dtype
+
+    x3, x4 : array_like, with any integer dtype
+        The range to look in, interpreted as in slice notation.
+        $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of ints.  Raises :exc:`ValueError` if `x2` is not found.
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    rfind, str.rfind
+
+    Examples
+    --------
+    >>> a = np.array(["Computer Science"])
+    >>> np.strings.rindex(a, "Science")
+    array([9])
+
+    """)
+
+add_newdoc('numpy._core.umath', '_replace',
+    """
+    UFunc implementation of ``replace``. This internal function
+    is called by ``replace`` with ``out`` set, so that the
+    size of the resulting string buffer is known.
+    """)
+
+add_newdoc('numpy._core.umath', 'startswith',
+    """
+    Returns a boolean array which is `True` where the string element
+    in `x1` starts with `x2`, otherwise `False`.
+
+    Parameters
+    ----------
+    x1 : array-like, with ``bytes_``, or ``str_`` dtype
+
+    x2 : array-like, with ``bytes_``, or ``str_`` dtype
+
+    x3 : array_like, with ``int_`` dtype
+
+    x4 : array_like, with ``int_`` dtype
+        $PARAMS
+        With `x3`, test beginning at that position. With `x4`,
+        stop comparing at that position.
+
+    Returns
+    -------
+    out : ndarray
+        Output array of bools
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.startswith
+
+    """)
+
+add_newdoc('numpy._core.umath', 'endswith',
+    """
+    Returns a boolean array which is `True` where the string element
+    in `x1` ends with `x2`, otherwise `False`.
+
+    Parameters
+    ----------
+    x1 : array-like, with ``bytes_``, or ``str_`` dtype
+
+    x2 : array-like, with ``bytes_``, or ``str_`` dtype
+
+    x3 : array_like, with ``int_`` dtype
+
+    x4 : array_like, with ``int_`` dtype
+        $PARAMS
+        With `x3`, test beginning at that position. With `x4`,
+        stop comparing at that position.
+
+    Returns
+    -------
+    out : ndarray
+        Output array of bools
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.endswith
+
+    Examples
+    --------
+    >>> s = np.array(['foo', 'bar'])
+    >>> s
+    array(['foo', 'bar'], dtype='<U3')
+    >>> np.strings.endswith(s, 'ar')
+    array([False,  True])
+    >>> np.strings.endswith(s, 'a', start=1, end=2)
+    array([False,  True])
+
+    """)
+
+add_newdoc('numpy._core.umath', '_strip_chars', '')
+add_newdoc('numpy._core.umath', '_lstrip_chars', '')
+add_newdoc('numpy._core.umath', '_rstrip_chars', '')
+add_newdoc('numpy._core.umath', '_strip_whitespace', '')
+add_newdoc('numpy._core.umath', '_lstrip_whitespace', '')
+add_newdoc('numpy._core.umath', '_rstrip_whitespace', '')
+
+add_newdoc('numpy._core.umath', '_expandtabs_length', '')
+add_newdoc('numpy._core.umath', '_expandtabs', '')
+
+add_newdoc('numpy._core.umath', '_center',
+    """
+    Return a copy of `x1` with its elements centered in a string of
+    length `x2`.
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``str_`` dtype
+
+    x2 : array_like, with any integer dtype
+        The length of the resulting strings, unless ``width < str_len(a)``.
+    x3 : array_like, with ``bytes_`` or ``str_`` dtype
+        The padding character to use.
+        $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of ``bytes_`` or ``str_`` dtype,
+        depending on input types
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.center
+
+    Examples
+    --------
+    >>> c = np.array(['a1b2','1b2a','b2a1','2a1b']); c
+    array(['a1b2', '1b2a', 'b2a1', '2a1b'], dtype='<U4')
+    >>> np.strings.center(c, width=9)
+    array(['   a1b2  ', '   1b2a  ', '   b2a1  ', '   2a1b  '], dtype='<U9')
+    >>> np.strings.center(c, width=9, fillchar='*')
+    array(['***a1b2**', '***1b2a**', '***b2a1**', '***2a1b**'], dtype='<U9')
+    >>> np.strings.center(c, width=1)
+    array(['a1b2', '1b2a', 'b2a1', '2a1b'], dtype='<U4')
+
+    """)
+
+add_newdoc('numpy._core.umath', '_ljust',
+    """
+    Return an array with the elements of `x1` left-justified in a
+    string of length `x2`.
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``str_`` dtype
+
+    x2 : array_like, with any integer dtype
+        The length of the resulting strings, unless ``width < str_len(a)``.
+    x3 : array_like, with ``bytes_`` or ``str_`` dtype
+        The padding character to use.
+        $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of ``bytes_`` or ``str_`` dtype,
+        depending on input type
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.ljust
+
+    Examples
+    --------
+    >>> c = np.array(['aAaAaA', '  aA  ', 'abBABba'])
+    >>> np.strings.ljust(c, width=3)
+    array(['aAaAaA', '  aA  ', 'abBABba'], dtype='<U7')
+    >>> np.strings.ljust(c, width=9)
+    array(['aAaAaA   ', '  aA     ', 'abBABba  '], dtype='<U9')
+
+    """)
+
+add_newdoc('numpy._core.umath', '_rjust',
+    """
+    Return an array with the elements of `x1` right-justified in a
+    string of length `x2`.
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``str_`` dtype
+
+    x2 : array_like, with any integer dtype
+        The length of the resulting strings, unless ``width < str_len(a)``.
+    x3 : array_like, with ``bytes_`` or ``str_`` dtype
+        The padding character to use.
+        $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of ``bytes_`` or ``str_`` dtype,
+        depending on input type
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.rjust
+
+    Examples
+    --------
+    >>> a = np.array(['aAaAaA', '  aA  ', 'abBABba'])
+    >>> np.strings.rjust(a, width=3)
+    array(['aAaAaA', '  aA  ', 'abBABba'], dtype='<U7')
+    >>> np.strings.rjust(a, width=9)
+    array(['   aAaAaA', '     aA  ', '  abBABba'], dtype='<U9')
+
+    """)
+
+add_newdoc('numpy._core.umath', '_zfill',
+    """
+    Return the numeric string left-filled with zeros. A leading
+    sign prefix (``+``/``-``) is handled by inserting the padding
+    after the sign character rather than before.
+
+    Parameters
+    ----------
+    x1 : array_like, with ``bytes_`` or ``str_`` dtype
+
+    x2 : array_like, with any integer dtype
+        Width of string to left-fill elements in `a`.
+        $PARAMS
+
+    Returns
+    -------
+    out : ndarray
+        Output array of ``bytes_`` or ``str_`` dtype,
+        depending on input type
+        $OUT_SCALAR_2
+
+    See Also
+    --------
+    str.zfill
+
+    Examples
+    --------
+    >>> np.strings.zfill(['1', '-1', '+1'], 3)
+    array(['001', '-01', '+01'], dtype='<U3')
+
+    """)
+
+add_newdoc('numpy._core.umath', '_partition_index',
+    """
+    Partition each element in ``x1`` around ``x2``, at precomputed
+    index ``x3``.
+
+    For each element in ``x1``, split the element at the first
+    occurrence of ``x2`` at location ``x3``, and return a 3-tuple
+    containing the part before the separator, the separator itself,
+    and the part after the separator. If the separator is not found,
+    the first item of the tuple will contain the whole string, and
+    the second and third ones will be the empty string.
+
+    Parameters
+    ----------
+    x1 : array-like, with ``bytes_``, or ``str_`` dtype
+        Input array
+    x2 : array-like, with ``bytes_``, or ``str_`` dtype
+        Separator to split each string element in ``x1``.
+    x3 : array-like, with any integer dtype
+        The indices of the separator (<0 to indicate the separator is not
+        present).
+
+    Returns
+    -------
+    out : 3-tuple:
+        - array with ``bytes_`` or ``str_`` dtype with the part before the
+          separator
+        - array with ``bytes_`` or ``str_`` dtype with the separator
+        - array with ``bytes_`` or ``str_`` dtype with the part after the
+          separator
+
+    See Also
+    --------
+    str.partition
+
+    Examples
+    --------
+    The ufunc is used most easily via ``np.strings.partition``,
+    which calls it after calculating the indices::
+
+    >>> x = np.array(["Numpy is nice!"])
+    >>> np.strings.partition(x, " ")
+    (array(['Numpy'], dtype='<U5'),
+     array([' '], dtype='<U1'),
+     array(['is nice!'], dtype='<U8'))
+
+    """)
+
+add_newdoc('numpy._core.umath', '_rpartition_index',
+    """
+    Partition each element in ``x1`` around the right-most separator,
+    ``x2``, at precomputed index ``x3``.
+
+    For each element in ``x1``, split the element at the last
+    occurrence of ``x2`` at location ``x3``, and return a 3-tuple
+    containing the part before the separator, the separator itself,
+    and the part after the separator. If the separator is not found,
+    the third item of the tuple will contain the whole string, and
+    the first and second ones will be the empty string.
+
+    Parameters
+    ----------
+    x1 : array-like, with ``bytes_``, or ``str_`` dtype
+        Input array
+    x2 : array-like, with ``bytes_``, or ``str_`` dtype
+        Separator to split each string element in ``x1``.
+    x3 : array-like, with any integer dtype
+        The indices of the separator (<0 to indicate the separator is not
+        present).
+
+    Returns
+    -------
+    out : 3-tuple:
+        - array with ``bytes_`` or ``str_`` dtype with the part before the
+          separator
+        - array with ``bytes_`` or ``str_`` dtype with the separator
+        - array with ``bytes_`` or ``str_`` dtype with the part after the
+          separator
+
+    See Also
+    --------
+    str.rpartition
+
+    Examples
+    --------
+    The ufunc is used most easily via ``np.strings.rpartition``,
+    which calls it after calculating the indices::
+
+    >>> a = np.array(['aAaAaA', '  aA  ', 'abBABba'])
+    >>> np.strings.rpartition(a, 'A')
+    (array(['aAaAa', '  a', 'abB'], dtype='<U5'),
+     array(['A', 'A', 'A'], dtype='<U1'),
+     array(['', '  ', 'Bba'], dtype='<U3'))
+
+    """)
+
+add_newdoc('numpy._core.umath', '_partition', '')
+add_newdoc('numpy._core.umath', '_rpartition', '')

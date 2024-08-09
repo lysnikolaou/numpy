@@ -285,6 +285,9 @@ fill_arraymethod_from_slots(
             case NPY_METH_unaligned_strided_loop:
                 meth->unaligned_strided_loop = slot->pfunc;
                 continue;
+            case _NPY_METH_static_data:
+                meth->static_data = slot->pfunc;
+                continue;
             case NPY_METH_unaligned_contiguous_loop:
                 meth->unaligned_contiguous_loop = slot->pfunc;
                 continue;

@@ -12,6 +12,11 @@ from ._multiarray_umath import *  # noqa: F403
 # do not change them. issue gh-11862
 # _ones_like is semi-public, on purpose not added to __all__
 from ._multiarray_umath import _UFUNC_API, _add_newdoc_ufunc, _ones_like
+from ._multiarray_umath import (
+    _replace, _strip_whitespace, _lstrip_whitespace, _rstrip_whitespace,
+    _strip_chars, _lstrip_chars, _rstrip_chars, _expandtabs_length,
+    _expandtabs, _center, _ljust, _rjust, _zfill, _partition, _partition_index,
+    _rpartition, _rpartition_index)
 
 __all__ = [
     '_UFUNC_API', 'ERR_CALL', 'ERR_DEFAULT', 'ERR_IGNORE', 'ERR_LOG',
