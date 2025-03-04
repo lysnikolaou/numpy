@@ -615,7 +615,10 @@ def _parse_einsum_input(operands):
                             "For this input type lists must contain "
                             "either int or Ellipsis"
                         ) from e
-                    subscripts += einsum_symbols[s]
+                    try:
+                        subscripts += einsum_symbols[s]
+                    except IndexError as e:
+                        raise ValueError("subscript is not within the valid range [0, 52)") from e
             if num != last:
                 subscripts += ","
 
@@ -632,7 +635,10 @@ def _parse_einsum_input(operands):
                             "For this input type lists must contain "
                             "either int or Ellipsis"
                         ) from e
-                    subscripts += einsum_symbols[s]
+                    try:
+                        subscripts += einsum_symbols[s]
+                    except IndexError as e:
+                        raise ValueError("subscript is not within the valid range [0, 52)") from e
     # Check for proper "->"
     if ("-" in subscripts) or (">" in subscripts):
         invalid = (subscripts.count("-") > 1) or (subscripts.count(">") > 1)
@@ -729,127 +735,8 @@ def _parse_einsum_input(operands):
     return (input_subscripts, output_subscript, operands)
 
 
-def _einsum_path_dispatcher(*operands, optimize=None, einsum_call=None):
-    # NOTE: technically, we should only dispatch on array-like arguments, not
-    # subscripts (given as strings). But separating operands into
-    # arrays/subscripts is a little tricky/slow (given einsum's two supported
-    # signatures), so as a practical shortcut we dispatch on everything.
-    # Strings will be ignored for dispatching since they don't define
-    # __array_function__.
-    return operands
-
-
-@array_function_dispatch(_einsum_path_dispatcher, module='numpy')
-def einsum_path(*operands, optimize='greedy', einsum_call=False):
-    """
-    einsum_path(subscripts, *operands, optimize='greedy')
-
-    Evaluates the lowest cost contraction order for an einsum expression by
-    considering the creation of intermediate arrays.
-
-    Parameters
-    ----------
-    subscripts : str
-        Specifies the subscripts for summation.
-    *operands : list of array_like
-        These are the arrays for the operation.
-    optimize : {bool, list, tuple, 'greedy', 'optimal'}
-        Choose the type of path. If a tuple is provided, the second argument is
-        assumed to be the maximum intermediate size created. If only a single
-        argument is provided the largest input or output array size is used
-        as a maximum intermediate size.
-
-        * if a list is given that starts with ``einsum_path``, uses this as the
-          contraction path
-        * if False no optimization is taken
-        * if True defaults to the 'greedy' algorithm
-        * 'optimal' An algorithm that combinatorially explores all possible
-          ways of contracting the listed tensors and chooses the least costly
-          path. Scales exponentially with the number of terms in the
-          contraction.
-        * 'greedy' An algorithm that chooses the best pair contraction
-          at each step. Effectively, this algorithm searches the largest inner,
-          Hadamard, and then outer products at each step. Scales cubically with
-          the number of terms in the contraction. Equivalent to the 'optimal'
-          path for most contractions.
-
-        Default is 'greedy'.
-
-    Returns
-    -------
-    path : list of tuples
-        A list representation of the einsum path.
-    string_repr : str
-        A printable representation of the einsum path.
-
-    Notes
-    -----
-    The resulting path indicates which terms of the input contraction should be
-    contracted first, the result of this contraction is then appended to the
-    end of the contraction list. This list can then be iterated over until all
-    intermediate contractions are complete.
-
-    See Also
-    --------
-    einsum, linalg.multi_dot
-
-    Examples
-    --------
-
-    We can begin with a chain dot example. In this case, it is optimal to
-    contract the ``b`` and ``c`` tensors first as represented by the first
-    element of the path ``(1, 2)``. The resulting tensor is added to the end
-    of the contraction and the remaining contraction ``(0, 1)`` is then
-    completed.
-
-    >>> np.random.seed(123)
-    >>> a = np.random.rand(2, 2)
-    >>> b = np.random.rand(2, 5)
-    >>> c = np.random.rand(5, 2)
-    >>> path_info = np.einsum_path('ij,jk,kl->il', a, b, c, optimize='greedy')
-    >>> print(path_info[0])
-    ['einsum_path', (1, 2), (0, 1)]
-    >>> print(path_info[1])
-      Complete contraction:  ij,jk,kl->il # may vary
-             Naive scaling:  4
-         Optimized scaling:  3
-          Naive FLOP count:  1.600e+02
-      Optimized FLOP count:  5.600e+01
-       Theoretical speedup:  2.857
-      Largest intermediate:  4.000e+00 elements
-    -------------------------------------------------------------------------
-    scaling                  current                                remaining
-    -------------------------------------------------------------------------
-       3                   kl,jk->jl                                ij,jl->il
-       3                   jl,ij->il                                   il->il
-
-
-    A more complex index transformation example.
-
-    >>> I = np.random.rand(10, 10, 10, 10)
-    >>> C = np.random.rand(10, 10)
-    >>> path_info = np.einsum_path('ea,fb,abcd,gc,hd->efgh', C, C, I, C, C,
-    ...                            optimize='greedy')
-
-    >>> print(path_info[0])
-    ['einsum_path', (0, 2), (0, 3), (0, 2), (0, 1)]
-    >>> print(path_info[1])
-      Complete contraction:  ea,fb,abcd,gc,hd->efgh # may vary
-             Naive scaling:  8
-         Optimized scaling:  5
-          Naive FLOP count:  8.000e+08
-      Optimized FLOP count:  8.000e+05
-       Theoretical speedup:  1000.000
-      Largest intermediate:  1.000e+04 elements
-    --------------------------------------------------------------------------
-    scaling                  current                                remaining
-    --------------------------------------------------------------------------
-       5               abcd,ea->bcde                      fb,gc,hd,bcde->efgh
-       5               bcde,fb->cdef                         gc,hd,cdef->efgh
-       5               cdef,gc->defg                            hd,defg->efgh
-       5               defg,hd->efgh                               efgh->efgh
-    """
-
+def _einsum_path_operands_parsed(input_subscripts, output_subscript, operands,
+                                 optimize='greedy', einsum_call=False):
     # Figure out what the path really is
     path_type = optimize
     if path_type is True:
@@ -879,11 +766,6 @@ def einsum_path(*operands, optimize='greedy', einsum_call=False):
 
     # Hidden option, only einsum should call this
     einsum_call_arg = einsum_call
-
-    # Python side parsing
-    input_subscripts, output_subscript, operands = (
-        _parse_einsum_input(operands)
-    )
 
     # Build a few useful list and sets
     input_list = input_subscripts.split(',')
@@ -1044,6 +926,131 @@ def einsum_path(*operands, optimize='greedy', einsum_call=False):
 
     path = ['einsum_path'] + path
     return (path, path_print)
+
+
+def _einsum_path_dispatcher(*operands, optimize=None, einsum_call=None):
+    # NOTE: technically, we should only dispatch on array-like arguments, not
+    # subscripts (given as strings). But separating operands into
+    # arrays/subscripts is a little tricky/slow (given einsum's two supported
+    # signatures), so as a practical shortcut we dispatch on everything.
+    # Strings will be ignored for dispatching since they don't define
+    # __array_function__.
+    return operands
+
+
+@array_function_dispatch(_einsum_path_dispatcher, module='numpy')
+def einsum_path(*operands, optimize='greedy', einsum_call=False):
+    """
+    einsum_path(subscripts, *operands, optimize='greedy')
+
+    Evaluates the lowest cost contraction order for an einsum expression by
+    considering the creation of intermediate arrays.
+
+    Parameters
+    ----------
+    subscripts : str
+        Specifies the subscripts for summation.
+    *operands : list of array_like
+        These are the arrays for the operation.
+    optimize : {bool, list, tuple, 'greedy', 'optimal'}
+        Choose the type of path. If a tuple is provided, the second argument is
+        assumed to be the maximum intermediate size created. If only a single
+        argument is provided the largest input or output array size is used
+        as a maximum intermediate size.
+
+        * if a list is given that starts with ``einsum_path``, uses this as the
+          contraction path
+        * if False no optimization is taken
+        * if True defaults to the 'greedy' algorithm
+        * 'optimal' An algorithm that combinatorially explores all possible
+          ways of contracting the listed tensors and chooses the least costly
+          path. Scales exponentially with the number of terms in the
+          contraction.
+        * 'greedy' An algorithm that chooses the best pair contraction
+          at each step. Effectively, this algorithm searches the largest inner,
+          Hadamard, and then outer products at each step. Scales cubically with
+          the number of terms in the contraction. Equivalent to the 'optimal'
+          path for most contractions.
+
+        Default is 'greedy'.
+
+    Returns
+    -------
+    path : list of tuples
+        A list representation of the einsum path.
+    string_repr : str
+        A printable representation of the einsum path.
+
+    Notes
+    -----
+    The resulting path indicates which terms of the input contraction should be
+    contracted first, the result of this contraction is then appended to the
+    end of the contraction list. This list can then be iterated over until all
+    intermediate contractions are complete.
+
+    See Also
+    --------
+    einsum, linalg.multi_dot
+
+    Examples
+    --------
+
+    We can begin with a chain dot example. In this case, it is optimal to
+    contract the ``b`` and ``c`` tensors first as represented by the first
+    element of the path ``(1, 2)``. The resulting tensor is added to the end
+    of the contraction and the remaining contraction ``(0, 1)`` is then
+    completed.
+
+    >>> np.random.seed(123)
+    >>> a = np.random.rand(2, 2)
+    >>> b = np.random.rand(2, 5)
+    >>> c = np.random.rand(5, 2)
+    >>> path_info = np.einsum_path('ij,jk,kl->il', a, b, c, optimize='greedy')
+    >>> print(path_info[0])
+    ['einsum_path', (1, 2), (0, 1)]
+    >>> print(path_info[1])
+      Complete contraction:  ij,jk,kl->il # may vary
+             Naive scaling:  4
+         Optimized scaling:  3
+          Naive FLOP count:  1.600e+02
+      Optimized FLOP count:  5.600e+01
+       Theoretical speedup:  2.857
+      Largest intermediate:  4.000e+00 elements
+    -------------------------------------------------------------------------
+    scaling                  current                                remaining
+    -------------------------------------------------------------------------
+       3                   kl,jk->jl                                ij,jl->il
+       3                   jl,ij->il                                   il->il
+
+
+    A more complex index transformation example.
+
+    >>> I = np.random.rand(10, 10, 10, 10)
+    >>> C = np.random.rand(10, 10)
+    >>> path_info = np.einsum_path('ea,fb,abcd,gc,hd->efgh', C, C, I, C, C,
+    ...                            optimize='greedy')
+
+    >>> print(path_info[0])
+    ['einsum_path', (0, 2), (0, 3), (0, 2), (0, 1)]
+    >>> print(path_info[1])
+      Complete contraction:  ea,fb,abcd,gc,hd->efgh # may vary
+             Naive scaling:  8
+         Optimized scaling:  5
+          Naive FLOP count:  8.000e+08
+      Optimized FLOP count:  8.000e+05
+       Theoretical speedup:  1000.000
+      Largest intermediate:  1.000e+04 elements
+    --------------------------------------------------------------------------
+    scaling                  current                                remaining
+    --------------------------------------------------------------------------
+       5               abcd,ea->bcde                      fb,gc,hd,bcde->efgh
+       5               bcde,fb->cdef                         gc,hd,cdef->efgh
+       5               cdef,gc->defg                            hd,defg->efgh
+       5               defg,hd->efgh                               efgh->efgh
+    """
+    input_subscripts, output_subscript, operands = _parse_einsum_input(operands)
+    return _einsum_path_operands_parsed(input_subscripts, output_subscript, operands,
+                                        optimize, einsum_call)
 
 
 def _einsum_dispatcher(*operands, out=None, optimize=None, **kwargs):
@@ -1415,9 +1422,13 @@ def einsum(*operands, out=None, optimize=False, **kwargs):
     """
     # Special handling if out is specified
     specified_out = out is not None
+    input_subscripts, output_subscript, real_operands = _parse_einsum_input(operands)
 
     # If no optimization, run pure einsum
-    if optimize is False:
+    # Benchmarking has shown that enabling BLAS works well for arrays with at least
+    # 20.000 elements. Passing optimize=False means we only use BLAS, when there's no
+    # path optimization needed, hence the check for the number of operands.
+    if optimize is False and (len(real_operands) > 2 or any(o.size < 20000 for o in real_operands)):
         if specified_out:
             kwargs['out'] = out
         return c_einsum(*operands, **kwargs)
@@ -1431,8 +1442,9 @@ def einsum(*operands, out=None, optimize=False, **kwargs):
         raise TypeError(f"Did not understand the following kwargs: {unknown_kwargs}")
 
     # Build the contraction list and operand
-    operands, contraction_list = einsum_path(*operands, optimize=optimize,
-                                             einsum_call=True)
+    operands, contraction_list = _einsum_path_operands_parsed(
+        input_subscripts, output_subscript, real_operands, optimize, einsum_call=True
+    )
 
     # Handle order kwarg for output array, c_einsum allows mixed case
     output_order = kwargs.pop('order', 'K')

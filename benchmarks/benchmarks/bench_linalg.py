@@ -207,6 +207,51 @@ class Einsum(Benchmark):
         np.einsum("i->", self.non_contiguous_dim1, optimize=True)
 
 
+class EinsumNoOptimize(Benchmark):
+    def setup(self):
+        self.one_dim_small = np.random.randn(600)
+        self.one_dim_medium = np.random.randn(20_000)
+        self.one_dim_big = np.random.randn(120_000)
+        self.two_dim_small = np.random.randn(30, 30)
+        self.two_dim_big = np.random.randn(300, 300)
+        self.two_dim_very_big = np.random.randn(2000, 2000)
+        self.three_dim_small = np.random.randn(10, 10, 10)
+        self.three_dim_two_dim_small = np.random.randn(30, 10, 10)
+        self.three_dim_big = np.random.randn(30, 30, 30)
+        self.three_dim_two_dim_big = np.random.randn(300, 10, 10)
+
+
+    def time_einsum_one_dim_small(self):
+        np.einsum("i,i", self.one_dim_small, self.one_dim_small, optimize=False)
+
+    def time_einsum_one_dim_medium(self):
+        np.einsum("i,i", self.one_dim_medium, self.one_dim_medium, optimize=False)
+
+    def time_einsum_one_dim_big(self):
+        np.einsum("i,i", self.one_dim_big, self.one_dim_big, optimize=False)
+
+    def time_einsum_two_dim_small(self):
+        np.einsum("ij,jk", self.two_dim_small, self.two_dim_small, optimize=False)
+
+    def time_einsum_two_dim_big(self):
+        np.einsum("ij,jk", self.two_dim_big, self.two_dim_big, optimize=False)
+
+    def time_einsum_two_dim_very_big(self):
+        np.einsum("ij,jk", self.two_dim_very_big, self.two_dim_very_big, optimize=False)
+
+    def time_einsum_three_dim_small(self):
+        np.einsum("ijk,jil", self.three_dim_small, self.three_dim_small, optimize=False)
+
+    def time_einsum_three_dim_big(self):
+        np.einsum("ijk,jil", self.three_dim_big, self.three_dim_big, optimize=False)
+
+    def time_einsum_two_three_dim_small(self):
+        np.einsum("ij,jkl", self.two_dim_small, self.three_dim_two_dim_small, optimize=False)
+
+    def time_einsum_two_three_dim_big(self):
+        np.einsum("ij,jkl", self.two_dim_big, self.three_dim_two_dim_big, optimize=False)
+
+
 class LinAlgTransposeVdot(Benchmark):
     # Smaller for speed
     # , (128, 128), (256, 256), (512, 512),
