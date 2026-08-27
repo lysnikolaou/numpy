@@ -967,9 +967,19 @@ promote_and_get_ufuncimpl(PyUFuncObject *ufunc,
     PyArrayMethodObject *method = (PyArrayMethodObject *)PyTuple_GET_ITEM(info, 1);
     PyObject *all_dtypes = PyTuple_GET_ITEM(info, 0);
 
-    /* If necessary, check if the old result would have been different */
+    /*
+     * If necessary, check if the old result would have been different.
+     *
+     * This only makes sense for ufuncs that actually have legacy loops to
+     * fall back on; a purely new-style ufunc (e.g. the string ufuncs, which
+     * have `ntypes == 0` and register only ArrayMethod loops) has no legacy
+     * behavior to compare against, and invoking the legacy type resolver on
+     * it would spuriously fail the whole operation with "no loop found".
+     * Mirror the guard used for the legacy-promotion path above.
+     */
     if (NPY_UNLIKELY(npy_promotion_state == NPY_USE_WEAK_PROMOTION_AND_WARN)
             && (force_legacy_promotion || promoting_pyscalars)
+            && (ufunc->ntypes != 0 || ufunc->userloops != NULL)
             && npy_give_promotion_warnings()) {
         PyArray_DTypeMeta *check_dtypes[NPY_MAXARGS];
         for (int i = 0; i < nargs; i++) {
